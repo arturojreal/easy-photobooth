@@ -1,0 +1,2243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XR Motion Conference Photo Booth</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <style>
+        /* Design System */
+        :root {
+            --primary-color: #8B5CF6;
+            --secondary-color: #5B21B6;
+            --background-color: #42208F;
+            --text-color: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --border-color: rgba(255, 255, 255, 0.2);
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --overlay-bg: rgba(66, 32, 143, 0.92);
+            
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --border-radius: 12px;
+            --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --countdown-bottom: 12vh;
+            --countdown-left: 50vw;
+            --countdown-size: 8vw;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--font-family);
+            background: var(--background-color);
+            color: var(--text-color);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        .main-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: var(--background-color);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .camera-container {
+            position: fixed;
+            top: var(--camera-top);
+            left: var(--camera-left);
+            transform: translate(-50%, -50%);
+            width: var(--camera-width-vw);
+            height: auto;
+            aspect-ratio: 16 / 9;
+            max-width: 95vw;
+            max-height: 95vh;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            z-index: 1;
+        }
+        
+        .camera-container.photo-result-active {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        #videoElement {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, 
+                rgba(99, 102, 241, 0.1) 0%, 
+                rgba(59, 130, 246, 0.05) 50%, 
+                rgba(99, 102, 241, 0.1) 100%);
+            pointer-events: none;
+        }
+        
+        .flash-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0);
+            pointer-events: none;
+            z-index: 10;
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .flash-active {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        #countdownDisplay {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: var(--countdown-size);
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 0 30px rgba(0, 0, 0, 0.6), 0 0 60px rgba(66, 32, 143, 0.7);
+            opacity: 0;
+            scale: 0;
+            pointer-events: none;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 25px 40px;
+            border-radius: 999px;
+            backdrop-filter: blur(16px);
+            z-index: 10;
+            width: auto;
+            max-width: 80%;
+        }
+
+        #stompboxIndicator {
+            position: fixed;
+            top: var(--stompbox-top);
+            left: var(--stompbox-left);
+            transform: translate(-50%, -50%);
+            background: var(--overlay-bg);
+            padding: 15px 30px;
+            border-radius: var(--border-radius);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            opacity: 0;
+            transition: var(--transition);
+            z-index: 4;
+        }
+
+        .key-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--overlay-bg);
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+        }
+        
+        .branding h2 {
+            font-size: 18px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .photo-result-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background-color);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            gap: 40px;
+            z-index: 1000;
+        }
+        
+        .captured-photo {
+            flex: 1;
+            max-width: 60%;
+            height: 80%;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            object-fit: cover;
+        }
+        
+        .qr-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+            max-width: 35%;
+        }
+        
+        .qr-code {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+        
+        .qr-instructions {
+            text-align: center;
+            font-size: 18px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+        
+        .progress-container {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            width: 0%;
+            border-radius: 4px;
+            transition: width 0.1s linear;
+        }
+        
+        .gallery-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--overlay-bg);
+            backdrop-filter: blur(20px);
+            display: none;
+            flex-direction: column;
+            padding: 40px;
+            z-index: 1000;
+        }
+        
+        .gallery-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .gallery-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .gallery-item {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .gallery-thumbnail {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 2px solid transparent;
+        }
+        
+        .gallery-thumbnail:hover {
+            scale: 1.05;
+            border-color: var(--primary-color);
+        }
+        
+        .gallery-thumbnail.selected {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px var(--primary-color);
+        }
+        
+        .gallery-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .gallery-thumbnail .selection-checkbox {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 24px;
+            height: 24px;
+        }
+        
+        .gallery-timestamp {
+            font-size: 14px;
+            color: #F4F3FF;
+            text-align: center;
+        }
+        
+        .debug-panel {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .debug-section {
+            margin-bottom: 30px;
+        }
+        
+        .debug-section h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+        
+        .debug-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        
+        .control-group input, .control-group select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            color: var(--text-color);
+            font-size: 14px;
+        }
+        
+        .control-group input[type="checkbox"] {
+            margin-right: 8px;
+            accent-color: var(--primary-color);
+        }
+        
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .btn:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success-color);
+        }
+        
+        .status-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning-color);
+        }
+        
+        .status-error {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--error-color);
+        }
+        
+        /* Single Photo View */
+        .single-photo-view {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background-color);
+            z-index: 1100;
+            overflow-y: auto;
+        }
+        
+        .single-photo-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            background: rgba(15, 15, 35, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .single-photo-title {
+            font-size: 24px;
+            margin: 0;
+            flex: 1;
+            text-align: center;
+        }
+        
+        .btn-back {
+            background: var(--overlay-bg);
+            border: 1px solid var(--border-color);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(-2px);
+        }
+        
+        .single-photo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+        }
+        
+        .single-photo-img {
+            max-width: 100%;
+            max-height: 60vh;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        
+        .share-buttons {
+            width: 100%;
+            max-width: 600px;
+            background: var(--overlay-bg);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .share-buttons h3 {
+            margin: 0 0 20px 0;
+            text-align: center;
+            font-size: 20px;
+        }
+        
+        .share-button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .share-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+        }
+        
+        .share-btn span {
+            font-size: 20px;
+        }
+        
+        .share-twitter {
+            background: #000000;
+        }
+        
+        .share-twitter:hover {
+            background: #1a1a1a;
+            transform: translateY(-2px);
+        }
+        
+        .share-facebook {
+            background: #1877f2;
+        }
+        
+        .share-facebook:hover {
+            background: #0c63d4;
+            transform: translateY(-2px);
+        }
+        
+        .share-instagram {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+        }
+        
+        .share-instagram:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        
+        .share-download {
+            background: var(--primary-color);
+        }
+        
+        .share-download:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+        
+        .share-link-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+        
+        .share-link-container label {
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        
+        .share-link-input {
+            flex: 1;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: white;
+            font-size: 13px;
+            font-family: monospace;
+        }
+        
+        .key-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--overlay-bg);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            z-index: 2;
+        }
+        
+        /* Instructions fixed at bottom center */
+        .instructions-container {
+            position: fixed;
+            bottom: var(--instructions-bottom);
+            left: 50%;
+            transform: translateX(-50%);
+            width: var(--instructions-width);
+            max-width: 90vw;
+            background: var(--overlay-bg);
+            padding: 10px 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            z-index: 3;
+        }
+
+        /* Branding fixed top-right */
+        .branding {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--overlay-bg);
+            padding: 12px 16px;
+            border-radius: var(--border-radius);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            z-index: 3;
+        }
+
+        /* Debug overlay defaults: hidden, above camera, scrollable */
+        .debug-overlay {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1500;
+            display: none;
+            max-width: 420px;
+            width: 90vw;
+            opacity: 1;
+        }
+
+        .debug-panel {
+            max-height: 80vh;
+            overflow: auto;
+            background: rgba(15, 15, 35, 0.95);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+        
+        .stompbox-active {
+            opacity: 1;
+            background: rgba(99, 102, 241, 0.2);
+            border-color: var(--primary-color);
+        }
+        
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 10px;
+            }
+
+            .camera-container {
+                width: 85vw;
+                height: 50vh;
+                max-width: 500px;
+                max-height: 375px;
+                margin: 20px auto;
+            }
+
+            .debug-overlay {
+                width: 90vw;
+                max-width: 400px;
+                top: 10px;
+                right: 10px;
+                max-height: 70vh;
+            }
+            
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Camera View -->
+        <div class="camera-container">
+            <video id="videoElement" autoplay playsinline></video>
+        </div>
+
+        <!-- Flash overlay for photo capture -->
+        <div class="flash-overlay" id="flashOverlay"></div>
+
+        <!-- Countdown Display (fixed overlay) -->
+        <div id="countdownDisplay"></div>
+
+        <!-- Stompbox Indicator (fixed overlay) -->
+        <div id="stompboxIndicator">📸 Stompbox Activated - Get Ready!</div>
+
+        <!-- Instructions (fixed bottom overlay) -->
+        <div class="instructions-container">Step lightly on the button to snap a photo, then wait for the QR code!</div>
+
+        <!-- Branding (fixed top-right) -->
+        <div class="branding"><h2>XR Motion Conference 2025</h2></div>
+        
+        <!-- Photo Result View -->
+        <div class="photo-result-container" id="photoResult">
+            <img class="captured-photo" id="capturedPhoto" alt="Captured Photo">
+            
+            <div class="qr-section">
+                <div id="qrCode" class="qr-code"></div>
+                <div class="qr-instructions">
+                    <strong>Scan this QR code</strong> with your phone to view &amp; share your photo on social media!
+                </div>
+            </div>
+            
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+        
+        <!-- Gallery Overlay -->
+        <div class="gallery-overlay" id="galleryOverlay">
+            <div class="gallery-header">
+                <h2 class="gallery-title">Photo Gallery</h2>
+                <div class="gallery-controls">
+                    <button class="btn btn-secondary" onclick="photoBoothApp.selectAllPhotos()">Select All</button>
+                    <button class="btn btn-secondary" onclick="photoBoothApp.clearSelection()">Clear Selection</button>
+                    <button class="btn btn-secondary" onclick="exportSelected()">Export Selected</button>
+                    <button class="btn btn-secondary" onclick="clearGallery()">Clear All</button>
+                    <button class="btn" onclick="closeGallery()">Close (ESC)</button>
+                </div>
+            </div>
+            <div class="gallery-grid" id="galleryGrid"></div>
+        </div>
+        
+        <!-- Single Photo View -->
+        <div class="single-photo-view" id="singlePhotoView">
+            <div class="single-photo-header">
+                <button class="btn btn-back" onclick="photoBoothApp.backToGallery()">← Back to Gallery</button>
+                <h2 class="single-photo-title" id="singlePhotoTitle">Your Photo</h2>
+            </div>
+            <div class="single-photo-container">
+                <img id="singlePhotoImage" class="single-photo-img" alt="Your photo">
+                <div class="share-buttons">
+                    <h3>Share Your Photo</h3>
+                    <div class="share-button-grid">
+                        <button class="share-btn share-twitter" onclick="photoBoothApp.shareToTwitter()">
+                            <span>𝕏</span> Share on X
+                        </button>
+                        <button class="share-btn share-facebook" onclick="photoBoothApp.shareToFacebook()">
+                            <span>f</span> Share on Facebook
+                        </button>
+                        <button class="share-btn share-instagram" onclick="photoBoothApp.copyInstagramLink()">
+                            <span>📷</span> Copy for Instagram
+                        </button>
+                        <button class="share-btn share-download" onclick="photoBoothApp.downloadCurrentPhoto()">
+                            <span>⬇</span> Download Photo
+                        </button>
+                    </div>
+                    <div class="share-link-container">
+                        <label>Direct Link:</label>
+                        <input type="text" id="shareLink" readonly class="share-link-input">
+                        <button class="btn btn-secondary" onclick="photoBoothApp.copyShareLink()">Copy Link</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Debug Panel -->
+        <div class="debug-overlay" id="debugOverlay">
+            <div class="debug-panel">
+                <h2 style="text-align: center; margin-bottom: 30px;">Debug Panel</h2>
+                
+                <div class="debug-section">
+                    <h3>📹 Camera Settings</h3>
+                    <div class="debug-controls">
+                        <div class="control-group">
+                            <label>Camera Source</label>
+                            <select id="cameraSelect"></select>
+                        </div>
+                        <div class="control-group">
+                            <label>Camera Size: <span id="cameraSizeValue">60</span>%</label>
+                            <input type="range" id="cameraSize" min="50" max="100" value="60">
+                        </div>
+                        <div class="control-group">
+                            <label>Brightness: <span id="brightnessValue">0</span></label>
+                            <input type="range" id="brightness" min="-100" max="100" value="0">
+                        </div>
+                        <div class="control-group">
+                            <label>Contrast: <span id="contrastValue">100</span>%</label>
+                            <input type="range" id="contrast" min="50" max="200" value="100">
+                        </div>
+                        <div class="control-group">
+                            <label>Saturation: <span id="saturationValue">100</span>%</label>
+                            <input type="range" id="saturation" min="0" max="200" value="100">
+                        </div>
+                        <div class="control-group">
+                            <label>Hue: <span id="hueValue">0</span>°</label>
+                            <input type="range" id="hue" min="-180" max="180" value="0">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="debug-section">
+                    <h3>📐 Element Positioning</h3>
+                    <div class="debug-controls">
+                        <div class="control-group">
+                            <label>Camera Left: <span id="cameraLeftValue">50</span>%</label>
+                            <input type="range" id="cameraLeft" min="0" max="100" value="50">
+                        </div>
+                        <div class="control-group">
+                            <label>Camera Top: <span id="cameraTopValue">50</span>%</label>
+                            <input type="range" id="cameraTop" min="0" max="100" value="50">
+                        </div>
+                        <div class="control-group">
+                            <label>Camera Width: <span id="cameraWidthValue">60</span>%</label>
+                            <input type="range" id="cameraWidth" min="20" max="100" value="60">
+                        </div>
+                        <div class="control-group">
+                            <label>Countdown Bottom: <span id="countdownBottomVHValue">12</span>vh</label>
+                            <input type="range" id="countdownBottomVH" min="0" max="50" value="12">
+                        </div>
+                        <div class="control-group">
+                            <label>Countdown Left: <span id="countdownLeftVWValue">50</span>vw</label>
+                            <input type="range" id="countdownLeftVW" min="0" max="100" value="50">
+                        </div>
+                        <div class="control-group">
+                            <label>Countdown Size: <span id="countdownSizeVWValue">8</span>vw</label>
+                            <input type="range" id="countdownSizeVW" min="4" max="20" value="8">
+                        </div>
+                        <div class="control-group">
+                            <label>Stompbox Top: <span id="stompboxTopVHValue">80</span>vh</label>
+                            <input type="range" id="stompboxTopVH" min="0" max="100" value="80">
+                        </div>
+                        <div class="control-group">
+                            <label>Stompbox Left: <span id="stompboxLeftVWValue">50</span>vw</label>
+                            <input type="range" id="stompboxLeftVW" min="0" max="100" value="50">
+                        </div>
+                        <div class="control-group">
+                            <label>Stompbox Font: <span id="stompboxFontPXValue">18</span>px</label>
+                            <input type="range" id="stompboxFontPX" min="12" max="40" value="18">
+                        </div>
+                        <div class="control-group">
+                            <label>Instructions Bottom: <span id="instructionsBottomPXValue">20</span>px</label>
+                            <input type="range" id="instructionsBottomPX" min="0" max="200" value="20">
+                        </div>
+                        <div class="control-group">
+                            <label>Instructions Width: <span id="instructionsWidthPercentValue">80</span>%</label>
+                            <input type="range" id="instructionsWidthPercent" min="40" max="100" value="80">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="debug-section">
+                    <h3>⏱️ Timing Settings</h3>
+                    <div class="debug-controls">
+                        <div class="control-group">
+                            <label>Stompbox Delay: <span id="stompDelayValue">1000</span>ms</label>
+                            <input type="range" id="stompDelay" min="0" max="5000" value="1000">
+                        </div>
+                        <div class="control-group">
+                            <label>Countdown Duration: <span id="countdownDurationValue">3</span>s</label>
+                            <input type="range" id="countdownDuration" min="1" max="10" value="3">
+                        </div>
+                        <div class="control-group">
+                            <label>"3" Duration (ms): <span id="countdown3MsValue">2000</span></label>
+                            <input type="range" id="countdown3Ms" min="500" max="5000" step="100" value="2000">
+                        </div>
+                        <div class="control-group">
+                            <label>"2" Duration (ms): <span id="countdown2MsValue">2000</span></label>
+                            <input type="range" id="countdown2Ms" min="500" max="5000" step="100" value="2000">
+                        </div>
+                        <div class="control-group">
+                            <label>"1" Duration (ms): <span id="countdown1MsValue">2000</span></label>
+                            <input type="range" id="countdown1Ms" min="500" max="5000" step="100" value="2000">
+                        </div>
+                        <div class="control-group">
+                            <label>Smile Hold (ms): <span id="countdownSmileHoldMsValue">1200</span></label>
+                            <input type="range" id="countdownSmileHoldMs" min="300" max="3000" step="100" value="1200">
+                        </div>
+                        <div class="control-group">
+                            <label>Display Duration: <span id="displayDurationValue">12</span>s</label>
+                            <input type="range" id="displayDuration" min="5" max="30" value="12">
+                        </div>
+                        <div class="control-group">
+                            <label>Progress Duration: <span id="progressDurationValue">15</span>s</label>
+                            <input type="range" id="progressDuration" min="5" max="30" value="15">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="debug-section">
+                    <h3>📸 Photo Settings</h3>
+                    <div class="debug-controls">
+                        <div class="control-group">
+                            <label>Photo Quality: <span id="photoQualityValue">0.92</span></label>
+                            <input type="range" id="photoQuality" min="0.1" max="1" step="0.01" value="0.92">
+                        </div>
+                        <div class="control-group">
+                            <label>Resolution</label>
+                            <select id="resolution">
+                                <option value="1920x1080">1920x1080 (Full HD)</option>
+                                <option value="1280x720">1280x720 (HD)</option>
+                                <option value="3840x2160">3840x2160 (4K)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="debug-section">
+                    <h3>📝 Editable Text</h3>
+                    <div class="debug-controls">
+                        <div class="control-group">
+                            <label>Countdown "3" Text</label>
+                            <input type="text" id="textCountdown3" value="3">
+                        </div>
+                        <div class="control-group">
+                            <label>Countdown "2" Text</label>
+                            <input type="text" id="textCountdown2" value="2">
+                        </div>
+                        <div class="control-group">
+                            <label>Countdown "1" Text</label>
+                            <input type="text" id="textCountdown1" value="1">
+                        </div>
+                        <div class="control-group">
+                            <label>"Smile!" Text</label>
+                            <input type="text" id="textSmile" value="Smile!">
+                        </div>
+                        <div class="control-group">
+                            <label>Stompbox Activated Text</label>
+                            <input type="text" id="textStompboxActivated" value="📸 Stompbox Activated - Get Ready!">
+                        </div>
+                        <div class="control-group">
+                            <label>Branding Text</label>
+                            <input type="text" id="textBranding" value="XR Motion Conference 2025">
+                        </div>
+                        <div class="control-group">
+                            <label>Instructions Text</label>
+                            <input type="text" id="textInstructions" value="Step lightly on the button to snap a photo, then wait for the QR code!">
+                        </div>
+                        <div class="control-group">
+                            <label>Key Hints Text</label>
+                            <input type="text" id="textKeyHints" value="Press 'G' for Gallery • 'D' for Debug • Spacebar to simulate stompbox">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="debug-section">
+                    <h3>🎨 Text Colors</h3>
+                    <div class="debug-controls">
+                        <div class="control-group">
+                            <label>Countdown Color</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="color" id="colorCountdown" value="#ffffff" style="width: 60px; height: 40px;">
+                                <input type="text" id="colorCountdownHex" value="#ffffff" placeholder="#ffffff" style="flex: 1;">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label>Branding Color</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="color" id="colorBranding" value="#ffffff" style="width: 60px; height: 40px;">
+                                <input type="text" id="colorBrandingHex" value="#ffffff" placeholder="#ffffff" style="flex: 1;">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label>Instructions Color</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="color" id="colorInstructions" value="#F4F3FF" style="width: 60px; height: 40px;">
+                                <input type="text" id="colorInstructionsHex" value="#F4F3FF" placeholder="#F4F3FF" style="flex: 1;">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label>Key Hints Color</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="color" id="colorKeyHints" value="#F4F3FF" style="width: 60px; height: 40px;">
+                                <input type="text" id="colorKeyHintsHex" value="#F4F3FF" placeholder="#F4F3FF" style="flex: 1;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="debug-section">
+                    <h3>🔗 QR & Background</h3>
+                    <div class="debug-controls">
+                        <div class="control-group">
+                            <label>QR Override URL (leave empty for photo-specific)</label>
+                            <input type="url" id="qrOverrideUrl" placeholder="https://example.com/event">
+                        </div>
+                        <div class="control-group">
+                            <label>Background Image URL</label>
+                            <input type="url" id="backgroundImageUrl" placeholder="https://example.com/bg.jpg">
+                        </div>
+                        <div class="control-group">
+                            <label>Background Image File</label>
+                            <input type="file" id="backgroundImageFile" accept="image/*">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="debug-section">
+                    <h3>🔧 System Status</h3>
+                    <div class="debug-controls">
+                        <div class="status-indicator status-success" id="cameraStatus">
+                            <span>●</span> Camera: Connected
+                        </div>
+                        <div class="status-indicator status-success" id="storageStatus">
+                            <span>●</span> Storage: OK
+                        </div>
+                        <div class="status-indicator status-success" id="systemStatus">
+                            <span>●</span> System: Ready
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="debug-section">
+                    <h3>🧪 Test Controls</h3>
+                    <div class="debug-controls">
+                        <button class="btn" onclick="testCountdown()">Test Countdown</button>
+                        <button class="btn" onclick="testPhotoCapture()">Test Photo Capture</button>
+                        <button class="btn" onclick="testQRGeneration()">Test QR Generation</button>
+                        <button class="btn" onclick="exportSettings()">Export Settings</button>
+                        <button class="btn" onclick="importSettings()">Import Settings</button>
+                        <button class="btn btn-secondary" onclick="resetToDefaults()">Reset to Defaults</button>
+                        <input type="file" id="importSettingsFile" accept=".json" style="display: none;">
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px;">
+                    <button class="btn" onclick="closeDebugPanel()">Close (ESC)</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="key-hint">
+            Press 'G' for Gallery • 'D' for Debug • Spacebar to simulate stompbox
+        </div>
+    </div>
+    
+    <script>
+        class PhotoBoothApp {
+            constructor() {
+                this.settings = {
+                    stompDelay: 1000,
+                    countdownDuration: 3,
+                    displayDuration: 12000,
+                    progressDuration: 15000,
+                    photoQuality: 0.92,
+                    resolution: '1920x1080',
+                    brightness: 0,
+                    contrast: 100,
+                    saturation: 100,
+                    hue: 0,
+                    cameraSize: 60,
+                    cameraLeft: 50,
+                    cameraTop: 50,
+                    cameraWidth: 60,
+                    showInstructions: true,
+                    showBranding: true,
+                    showKeyHints: true,
+                    showStompboxIndicator: true,
+                    countdownBottomVH: 12,
+                    countdownLeftVW: 50,
+                    countdownSizeVW: 8,
+                    countdownStepMs: 2000,
+                    countdownSmileHoldMs: 1200,
+                    stompboxTopVH: 75,
+                    stompboxLeftVW: 40,
+                    stompboxFontPX: 25,
+                    instructionsBottomPX: 100,
+                    instructionsWidthPercent: 20,
+                    qrOverrideUrl: '',
+                    backgroundImageUrl: 'xrmotionconf-bg.png',
+                    backgroundImageData: '',
+                    // Per-step countdown timing
+                    countdown3Ms: 2000,
+                    countdown2Ms: 2000,
+                    countdown1Ms: 2000,
+                    // Editable text content
+                    textCountdown3: '3',
+                    textCountdown2: '2',
+                    textCountdown1: '1',
+                    textSmile: 'Smile!',
+                    textStompboxActivated: '📸 Stompbox Activated - Get Ready!',
+                    textBranding: 'XR Motion Conference 2025',
+                    textInstructions: 'Step lightly on the button to snap a photo, then wait for the QR code!',
+                    textKeyHints: "Press 'G' for Gallery • 'D' for Debug • Spacebar to simulate stompbox",
+                    // Text colors
+                    colorCountdown: '#ffffff',
+                    colorBranding: '#ffffff',
+                    colorInstructions: '#F4F3FF',
+                    colorKeyHints: '#F4F3FF'
+                };
+                
+                this.photos = [];
+                this.selectedPhotos = new Set();
+                this.currentStream = null;
+                this.isCapturing = false;
+                this.countdownActive = false;
+
+                this.initializeApp();
+            }
+            
+            getSelectedPhotos() {
+                return this.photos.filter(photo => this.selectedPhotos.has(photo.id));
+            }
+
+            togglePhotoSelection(photoId) {
+                if (this.selectedPhotos.has(photoId)) {
+                    this.selectedPhotos.delete(photoId);
+                } else {
+                    this.selectedPhotos.add(photoId);
+                }
+                this.updateGallerySelection();
+            }
+
+            selectAllPhotos() {
+                this.photos.forEach(photo => this.selectedPhotos.add(photo.id));
+                this.updateGallerySelection();
+            }
+
+            clearSelection() {
+                this.selectedPhotos.clear();
+                this.updateGallerySelection();
+            }
+
+            updateGallerySelection() {
+                // Update visual selection state in gallery
+                this.photos.forEach(photo => {
+                    const item = document.querySelector(`[data-photo-id="${photo.id}"]`);
+                    if (item) {
+                        const checkbox = item.querySelector('.selection-checkbox');
+                        if (checkbox) {
+                            checkbox.checked = this.selectedPhotos.has(photo.id);
+                        }
+                    }
+                });
+            }
+            
+            updateElementPositions() {
+                const root = document.documentElement;
+                // Camera
+                root.style.setProperty('--camera-left', `${this.settings.cameraLeft}vw`);
+                root.style.setProperty('--camera-top', `${this.settings.cameraTop}vh`);
+                root.style.setProperty('--camera-width-vw', `${this.settings.cameraWidth}vw`);
+                // Countdown
+                root.style.setProperty('--countdown-bottom', `${this.settings.countdownBottomVH}vh`);
+                root.style.setProperty('--countdown-left', `${this.settings.countdownLeftVW}vw`);
+                root.style.setProperty('--countdown-size', `${this.settings.countdownSizeVW}vw`);
+                // Stompbox
+                root.style.setProperty('--stompbox-top', `${this.settings.stompboxTopVH}vh`);
+                root.style.setProperty('--stompbox-left', `${this.settings.stompboxLeftVW}vw`);
+                // Instructions
+                root.style.setProperty('--instructions-bottom', `${this.settings.instructionsBottomPX}px`);
+                root.style.setProperty('--instructions-width', `${this.settings.instructionsWidthPercent}%`);
+
+                const stompbox = document.getElementById('stompboxIndicator');
+                if (stompbox) stompbox.style.fontSize = `${this.settings.stompboxFontPX}px`;
+
+                // Apply background image override
+                const mainContainer = document.querySelector('.main-container');
+                if (mainContainer) {
+                    if (this.settings.backgroundImageData) {
+                        mainContainer.style.background = `url(${this.settings.backgroundImageData}) center/cover no-repeat fixed`;
+                    } else if (this.settings.backgroundImageUrl) {
+                        mainContainer.style.background = `url(${this.settings.backgroundImageUrl}) center/cover no-repeat fixed`;
+                    } else {
+                        mainContainer.style.background = 'var(--background-color)';
+                    }
+                }
+            }
+
+            exportSettings() {
+                const settings = {
+                    ...this.settings,
+                    timestamp: new Date().toISOString(),
+                    version: '1.0'
+                };
+
+                const dataStr = JSON.stringify(settings, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `photobooth-settings-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                alert('Settings exported! Check your downloads folder.');
+            }
+            
+            async initializeApp() {
+                await this.loadPhotosFromStorage();
+                await this.initCamera();
+                this.setupEventListeners();
+                this.setupDebugPanel();
+                this.updateCameraFilters();
+                this.updateCameraSize();
+                this.updateUIElements();
+                this.updateElementPositions();
+                this.setupHashRouting();
+                this.handleUrlHash();
+            }
+            
+            setupHashRouting() {
+                window.addEventListener('hashchange', () => {
+                    this.handleUrlHash();
+                });
+            }
+            
+            handleUrlHash() {
+                const hash = window.location.hash;
+                if (hash.startsWith('#photo=')) {
+                    const photoId = hash.substring(7); // Remove '#photo='
+                    this.closeGallery();
+                    this.showSinglePhoto(photoId);
+                } else if (hash === '#gallery') {
+                    this.closeSinglePhotoView();
+                    this.openGallery();
+                } else {
+                    // Default view - close overlays
+                    this.closeSinglePhotoView();
+                    this.closeGallery();
+                }
+            }
+            
+            async initCamera() {
+                try {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                    
+                    this.populateCameraSelect(videoDevices);
+                    
+                    const constraints = {
+                        video: {
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                            frameRate: { ideal: 30 }
+                        }
+                    };
+                    
+                    this.currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    const videoElement = document.getElementById('videoElement');
+                    videoElement.srcObject = this.currentStream;
+                    
+                    this.updateSystemStatus('cameraStatus', 'Camera: Connected', 'success');
+                } catch (error) {
+                    console.error('Camera initialization failed:', error);
+                    this.updateSystemStatus('cameraStatus', 'Camera: Error', 'error');
+                }
+            }
+            
+            populateCameraSelect(devices) {
+                const select = document.getElementById('cameraSelect');
+                select.innerHTML = '';
+                
+                devices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.textContent = device.label || `Camera ${index + 1}`;
+                    select.appendChild(option);
+                });
+            }
+            
+            async switchCamera(deviceId) {
+                if (this.currentStream) {
+                    this.currentStream.getTracks().forEach(track => track.stop());
+                }
+                
+                try {
+                    const constraints = {
+                        video: {
+                            deviceId: { exact: deviceId },
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                            frameRate: { ideal: 30 }
+                        }
+                    };
+                    
+                    this.currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    const videoElement = document.getElementById('videoElement');
+                    videoElement.srcObject = this.currentStream;
+                    
+                    this.updateCameraFilters();
+                } catch (error) {
+                    console.error('Camera switch failed:', error);
+                }
+            }
+            
+            updateCameraFilters() {
+                const videoElement = document.getElementById('videoElement');
+                const filters = [
+                    `brightness(${100 + this.settings.brightness}%)`,
+                    `contrast(${this.settings.contrast}%)`,
+                    `saturate(${this.settings.saturation}%)`,
+                    `hue-rotate(${this.settings.hue}deg)`
+                ];
+                
+                videoElement.style.filter = filters.join(' ');
+            }
+            
+            updateCameraSize() {
+                // Keep backward-compat: tie legacy cameraSize slider to cameraWidth CSS var
+                if (typeof this.settings.cameraSize === 'number') {
+                    this.settings.cameraWidth = this.settings.cameraSize;
+                }
+                const root = document.documentElement;
+                root.style.setProperty('--camera-width-vw', `${this.settings.cameraWidth}vw`);
+            }
+            
+            setupEventListeners() {
+                // Keyboard events
+                document.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space' && !this.countdownActive) {
+                        e.preventDefault();
+                        this.triggerPhotoCapture();
+                    } else if (e.key.toLowerCase() === 'g') {
+                        this.toggleGallery();
+                    } else if (e.key.toLowerCase() === 'd') {
+                        this.toggleDebugPanel();
+                    } else if (e.key === 'Escape') {
+                        // If photo result is showing, skip progress and return immediately
+                        const photoResult = document.getElementById('photoResult');
+                        if (photoResult && photoResult.style.display === 'flex') {
+                            if (this.progressAnimation) {
+                                try { this.progressAnimation.pause(); } catch (_) {}
+                                this.progressAnimation = null;
+                            }
+                            this.returnToMainView();
+                        } else {
+                            this.closeAllOverlays();
+                        }
+                    }
+                });
+
+                // Camera selection
+                document.getElementById('cameraSelect').addEventListener('change', (e) => {
+                    this.switchCamera(e.target.value);
+                });
+            }
+
+            setupDebugPanel() {
+                const controls = [
+                    'stompDelay', 'countdownDuration', 'displayDuration', 'progressDuration',
+                    'photoQuality', 'cameraSize', 'brightness', 'contrast', 'saturation', 'hue',
+                    'showInstructions', 'showBranding', 'showKeyHints', 'showStompboxIndicator',
+                    'cameraLeft', 'cameraTop', 'cameraWidth',
+                    'countdownSizeVW',
+                    'countdown3Ms', 'countdown2Ms', 'countdown1Ms', 'countdownSmileHoldMs',
+                    'instructionsBottomPX', 'instructionsWidthPercent',
+                    'qrOverrideUrl', 'backgroundImageUrl',
+                    'textCountdown3', 'textCountdown2', 'textCountdown1', 'textSmile',
+                    'textStompboxActivated', 'textBranding', 'textInstructions', 'textKeyHints',
+                    'colorCountdown', 'colorBranding', 'colorInstructions', 'colorKeyHints'
+                ];
+                
+                controls.forEach(control => {
+                    const element = document.getElementById(control);
+                    if (element) {
+                        if (element.type === 'checkbox') {
+                            element.checked = this.settings[control];
+                            element.addEventListener('change', (e) => {
+                                this.settings[control] = e.target.checked;
+                                this.updateUIElements();
+                            });
+                        } else if (element.type === 'color') {
+                            element.value = this.settings[control] || '#ffffff';
+                            const hexInput = document.getElementById(control + 'Hex');
+                            if (hexInput) hexInput.value = this.settings[control] || '#ffffff';
+                            
+                            element.addEventListener('input', (e) => {
+                                this.settings[control] = e.target.value;
+                                if (hexInput) hexInput.value = e.target.value;
+                                this.updateUIElements();
+                            });
+                            
+                            if (hexInput) {
+                                hexInput.addEventListener('input', (e) => {
+                                    const value = e.target.value;
+                                    if (/^#[0-9A-F]{6}$/i.test(value)) {
+                                        this.settings[control] = value;
+                                        element.value = value;
+                                        this.updateUIElements();
+                                    }
+                                });
+                            }
+                        } else if (element.type === 'text' || element.type === 'url') {
+                            element.value = this.settings[control] || '';
+                            element.addEventListener('input', (e) => {
+                                this.settings[control] = e.target.value;
+                                if (control === 'backgroundImageUrl') {
+                                    this.updateElementPositions();
+                                } else if (control.startsWith('text')) {
+                                    this.updateUIElements();
+                                }
+                            });
+                        } else {
+                            element.value = this.settings[control];
+                            element.addEventListener('input', (e) => {
+                                this.settings[control] = parseFloat(e.target.value) || parseInt(e.target.value);
+                                this.updateControlValue(control, e.target.value);
+                                
+                                if (['brightness', 'contrast', 'saturation', 'hue', 'cameraSize'].includes(control)) {
+                                    if (control === 'cameraSize') {
+                                        this.updateCameraSize();
+                                    } else {
+                                        this.updateCameraFilters();
+                                    }
+                                } else if (['cameraLeft', 'cameraTop', 'cameraWidth', 'countdownBottomVH', 'countdownLeftVW', 'countdownSizeVW', 'stompboxTopVH', 'stompboxLeftVW', 'stompboxFontPX', 'instructionsBottomPX', 'instructionsWidthPercent'].includes(control)) {
+                                    this.updateElementPositions();
+                                }
+                            });
+                            
+                            this.updateControlValue(control, this.settings[control]);
+                        }
+                    }
+                });
+
+                // Background image file upload
+                const bgFileInput = document.getElementById('backgroundImageFile');
+                if (bgFileInput) {
+                    bgFileInput.addEventListener('change', (e) => {
+                        const file = e.target.files[0];
+                        if (file && file.type.startsWith('image/')) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                this.settings.backgroundImageData = event.target.result;
+                                this.settings.backgroundImageUrl = ''; // Clear URL when file is used
+                                this.updateElementPositions();
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                    });
+                }
+
+                // Import settings file handler
+                const importFileInput = document.getElementById('importSettingsFile');
+                if (importFileInput) {
+                    importFileInput.addEventListener('change', (e) => {
+                        const file = e.target.files[0];
+                        if (file && file.type === 'application/json') {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                try {
+                                    const imported = JSON.parse(event.target.result);
+                                    // Merge imported settings
+                                    Object.assign(this.settings, imported);
+                                    // Refresh all controls
+                                    this.setupDebugPanel();
+                                    this.updateCameraFilters();
+                                    this.updateCameraSize();
+                                    this.updateUIElements();
+                                    this.updateElementPositions();
+                                    alert('Settings imported successfully!');
+                                } catch (error) {
+                                    alert('Failed to import settings: ' + error.message);
+                                }
+                            };
+                            reader.readAsText(file);
+                        }
+                    });
+                }
+            }
+            
+            updateControlValue(control, value) {
+                const valueElement = document.getElementById(control + 'Value');
+                if (valueElement) {
+                    valueElement.textContent = value;
+                }
+            }
+            
+            updateUIElements() {
+                // Update instructions visibility
+                const instructions = document.querySelector('.instructions-container');
+                if (instructions) {
+                    instructions.style.display = this.settings.showInstructions ? 'block' : 'none';
+                    instructions.textContent = this.settings.textInstructions;
+                    instructions.style.color = this.settings.colorInstructions;
+                }
+
+                // Update branding visibility
+                const branding = document.querySelector('.branding h2');
+                if (branding) {
+                    branding.parentElement.style.display = this.settings.showBranding ? 'block' : 'none';
+                    branding.textContent = this.settings.textBranding;
+                    branding.style.color = this.settings.colorBranding;
+                }
+
+                // Update key hints visibility
+                const keyHint = document.querySelector('.key-hint');
+                if (keyHint) {
+                    keyHint.style.display = this.settings.showKeyHints ? 'block' : 'none';
+                    keyHint.textContent = this.settings.textKeyHints;
+                    keyHint.style.color = this.settings.colorKeyHints;
+                }
+
+                // Update stompbox indicator visibility
+                const stompboxIndicator = document.getElementById('stompboxIndicator');
+                if (stompboxIndicator) {
+                    stompboxIndicator.style.display = this.settings.showStompboxIndicator ? 'block' : 'none';
+                }
+                
+                // Update countdown display color
+                const countdownDisplay = document.getElementById('countdownDisplay');
+                if (countdownDisplay) {
+                    countdownDisplay.style.color = this.settings.colorCountdown;
+                }
+            }
+
+            async triggerPhotoCapture() {
+                if (this.isCapturing || this.countdownActive) return;
+                
+                // Show stompbox indicator
+                const countdownDisplay = document.getElementById('countdownDisplay');
+                if (!countdownDisplay) {
+                    console.error('❌ countdownDisplay element not found!');
+                    return;
+                }
+                
+                console.log('✅ countdownDisplay element found:', countdownDisplay);
+                console.log('📍 Position:', {
+                    bottom: getComputedStyle(countdownDisplay).bottom,
+                    left: getComputedStyle(countdownDisplay).left,
+                    fontSize: getComputedStyle(countdownDisplay).fontSize,
+                    zIndex: getComputedStyle(countdownDisplay).zIndex,
+                    display: getComputedStyle(countdownDisplay).display
+                });
+                
+                countdownDisplay.textContent = this.settings.textStompboxActivated;
+                countdownDisplay.style.display = 'block';
+                countdownDisplay.style.fontSize = '24px'; // Smaller for stompbox text
+                countdownDisplay.style.opacity = 0;
+                countdownDisplay.style.scale = 0.9;
+                anime({
+                    targets: countdownDisplay,
+                    opacity: [0, 1],
+                    scale: [0.9, 1],
+                    duration: 250,
+                    easing: 'easeOutBack'
+                });
+                
+                // Keep the indicator visible for the configured duration, then start countdown in same element
+                setTimeout(() => {
+                    this.startCountdown(countdownDisplay);
+                }, this.settings.stompDelay);
+            }
+            
+            startCountdown(countdownElement) {
+                this.countdownActive = true;
+                console.log('🎬 COUNTDOWN STARTED');
+                if (!countdownElement) {
+                    console.log('❌ No countdown element found');
+                    this.capturePhoto();
+                    return;
+                }
+                const countdownTexts = [
+                    this.settings.textCountdown3,
+                    this.settings.textCountdown2,
+                    this.settings.textCountdown1,
+                    this.settings.textSmile
+                ];
+                const displayDurations = [
+                    Math.max(250, this.settings.countdown3Ms || 2000),
+                    Math.max(250, this.settings.countdown2Ms || 2000),
+                    Math.max(250, this.settings.countdown1Ms || 2000),
+                    Math.max(300, this.settings.countdownSmileHoldMs || 1200)
+                ];
+
+                console.log('⏱️ Countdown durations:', displayDurations);
+                console.log('📝 Countdown texts:', countdownTexts);
+
+                countdownElement.style.display = 'block';
+                let currentIndex = 0;
+                
+                const showNextCount = () => {
+                    if (currentIndex < countdownTexts.length) {
+                        const text = countdownTexts[currentIndex];
+                        const duration = displayDurations[currentIndex];
+                        const animDuration = Math.max(200, duration - 150);
+                        
+                        console.log(`\n🔢 Step ${currentIndex + 1}/${countdownTexts.length}: "${text}"`);
+                        console.log(`   Duration: ${duration}ms (anim: ${animDuration}ms)`);
+                        console.log(`   Time: ${new Date().toLocaleTimeString()}.${new Date().getMilliseconds()}`);
+                        
+                        countdownElement.textContent = text;
+                        // Make numbers more prominent during countdown
+                        countdownElement.style.fontSize = `${this.settings.countdownSizeVW}vw`;
+                        countdownElement.style.fontWeight = text === this.settings.textSmile ? '700' : '900';
+                        
+                        // Start invisible
+                        countdownElement.style.opacity = 0;
+                        countdownElement.style.scale = 1;
+                        
+                        console.log(`   👁️ Displaying "${text}" for ${duration}ms`);
+                        
+                        // Quick fade in
+                        anime({
+                            targets: countdownElement,
+                            opacity: [0, 1],
+                            duration: 200,
+                            easing: 'linear',
+                            complete: () => {
+                                // Hold visible for most of the duration
+                                setTimeout(() => {
+                                    // Quick fade out
+                                    anime({
+                                        targets: countdownElement,
+                                        opacity: [1, 0],
+                                        duration: 200,
+                                        easing: 'linear',
+                                        complete: () => {
+                                            console.log(`   ✅ Display complete for "${text}"`);
+                                            currentIndex++;
+                                            if (currentIndex < countdownTexts.length) {
+                                                console.log(`   ⏭️ Moving to next step...`);
+                                                showNextCount();
+                                            } else {
+                                                console.log(`\n😊 Final step complete - capturing now`);
+                                                this.capturePhoto();
+                                                countdownElement.style.display = 'none';
+                                                this.countdownActive = false;
+                                                console.log('🏁 COUNTDOWN COMPLETE\n');
+                                            }
+                                        }
+                                    });
+                                }, duration - 400); // Subtract fade in + fade out time
+                            }
+                        });
+                    }
+                };
+                
+                showNextCount();
+            }
+            
+            async capturePhoto() {
+                this.isCapturing = true;
+                this.countdownActive = false;
+                
+                try {
+                    const videoElement = document.getElementById('videoElement');
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
+                    
+                    ctx.drawImage(videoElement, 0, 0);
+                    
+                    const photoDataUrl = canvas.toDataURL('image/jpeg', this.settings.photoQuality);
+                    const photoId = this.generateUniqueId();
+                    const timestamp = new Date().toISOString();
+                    
+                    const photoData = {
+                        id: photoId,
+                        dataUrl: photoDataUrl,
+                        timestamp: timestamp,
+                        settings: { ...this.settings }
+                    };
+                    
+                    this.photos.push(photoData);
+                    await this.savePhotosToStorage();
+                    
+                    // Flash effect
+                    const flashOverlay = document.getElementById('flashOverlay');
+                    flashOverlay.classList.add('flash-active');
+                    setTimeout(() => {
+                        flashOverlay.classList.remove('flash-active');
+                    }, 200);
+                    
+                    this.showPhotoResult(photoData);
+                } catch (error) {
+                    console.error('Photo capture failed:', error);
+                    this.isCapturing = false;
+                }
+            }
+            
+            async showPhotoResult(photoData) {
+                const capturedPhoto = document.getElementById('capturedPhoto');
+                const photoResult = document.getElementById('photoResult');
+                const cameraContainer = document.querySelector('.camera-container');
+                const progressBar = document.getElementById('progressBar');
+                
+                // Hide camera feed
+                cameraContainer.classList.add('photo-result-active');
+                
+                capturedPhoto.src = photoData.dataUrl;
+                
+                // Generate QR code
+                await this.generateQRCode(photoData.id);
+                
+                // Show photo result view
+                photoResult.style.display = 'flex';
+                
+                anime({
+                    targets: photoResult,
+                    opacity: [0, 1],
+                    duration: 500,
+                    easing: 'easeOutQuad'
+                });
+                
+                // Animate photo sliding in
+                anime({
+                    targets: capturedPhoto,
+                    translateX: ['100%', '0%'],
+                    scale: [0.8, 1],
+                    duration: 800,
+                    easing: 'easeOutBack'
+                });
+                
+                // Animate QR code
+                anime({
+                    targets: '.qr-section',
+                    translateX: ['-100%', '0%'],
+                    opacity: [0, 1],
+                    duration: 800,
+                    delay: 200,
+                    easing: 'easeOutBack'
+                });
+                
+                // Start progress bar (store handle for ESC skip)
+                this.progressAnimation = anime({
+                    targets: progressBar,
+                    width: ['0%', '100%'],
+                    duration: this.settings.progressDuration,
+                    easing: 'linear',
+                    complete: () => {
+                        this.returnToMainView();
+                    }
+                });
+                
+                this.isCapturing = false;
+            }
+            
+            async generateQRCode(photoId) {
+                const qrContainer = document.getElementById('qrCode');
+
+                qrContainer.innerHTML = '';
+
+                try {
+                    // Find the photo by ID
+                    const photo = this.photos.find(p => p.id === photoId);
+                    if (!photo) {
+                        qrContainer.innerHTML = '<p style="color: var(--error-color); text-align: center; padding: 20px;">Photo not found</p>';
+                        return;
+                    }
+
+                    // Use override URL if set, otherwise generate photo-specific URL
+                    let shareUrl;
+                    if (this.settings.qrOverrideUrl && this.settings.qrOverrideUrl.trim()) {
+                        shareUrl = this.settings.qrOverrideUrl.trim();
+                    } else {
+                        shareUrl = `${window.location.origin}${window.location.pathname}#photo=${photoId}`;
+                    }
+
+                    // Create a canvas element for the QR code
+                    const canvas = document.createElement('canvas');
+                    canvas.id = 'qrCanvas';
+                    canvas.width = 200;
+                    canvas.height = 200;
+                    qrContainer.appendChild(canvas);
+
+                    await QRCode.toCanvas(canvas, shareUrl, {
+                        width: 200,
+                        margin: 2,
+                        color: {
+                            dark: '#000000',
+                            light: '#FFFFFF'
+                        }
+                    });
+                } catch (error) {
+                    console.error('QR Code generation failed:', error);
+                    qrContainer.innerHTML = '<p style="color: var(--error-color); text-align: center; padding: 20px;">QR Code generation failed</p>';
+                }
+            }
+            
+            returnToMainView() {
+                const photoResult = document.getElementById('photoResult');
+                const cameraContainer = document.querySelector('.camera-container');
+                const progressBar = document.getElementById('progressBar');
+                
+                // Show camera feed again
+                cameraContainer.classList.remove('photo-result-active');
+                
+                anime({
+                    targets: photoResult,
+                    opacity: [1, 0],
+                    duration: 500,
+                    easing: 'easeInQuad',
+                    complete: () => {
+                        photoResult.style.display = 'none';
+                        progressBar.style.width = '0%';
+                        this.progressAnimation = null;
+                    }
+                });
+            }
+            
+            toggleGallery() {
+                const galleryOverlay = document.getElementById('galleryOverlay');
+                const isVisible = galleryOverlay.style.display === 'flex';
+                
+                if (isVisible) {
+                    this.closeGallery();
+                } else {
+                    this.openGallery();
+                }
+            }
+            
+            openGallery() {
+                const galleryOverlay = document.getElementById('galleryOverlay');
+                const galleryGrid = document.getElementById('galleryGrid');
+                
+                galleryOverlay.style.display = 'flex';
+                
+                // Populate gallery
+                galleryGrid.innerHTML = '';
+                
+                this.photos.forEach((photo, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'gallery-item';
+                    item.setAttribute('data-photo-id', photo.id);
+
+                    const thumbnail = document.createElement('div');
+                    thumbnail.className = `gallery-thumbnail ${this.selectedPhotos.has(photo.id) ? 'selected' : ''}`;
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'selection-checkbox';
+                    checkbox.checked = this.selectedPhotos.has(photo.id);
+
+                    const img = document.createElement('img');
+                    img.src = photo.dataUrl;
+                    img.alt = `Photo ${index + 1}`;
+
+                    thumbnail.appendChild(checkbox);
+                    thumbnail.appendChild(img);
+
+                    const timestamp = document.createElement('div');
+                    timestamp.className = 'gallery-timestamp';
+                    const date = new Date(photo.timestamp);
+                    timestamp.textContent = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+
+                    item.appendChild(thumbnail);
+                    item.appendChild(timestamp);
+                    
+                    // Handle checkbox change
+                    checkbox.addEventListener('change', (e) => {
+                        e.stopPropagation();
+                        this.togglePhotoSelection(photo.id);
+                        thumbnail.classList.toggle('selected', this.selectedPhotos.has(photo.id));
+                    });
+                    
+                    // Handle item click (for viewing full photo)
+                    thumbnail.addEventListener('click', (e) => {
+                        if (e.target !== checkbox) {
+                            window.location.hash = `photo=${photo.id}`;
+                        }
+                    });
+                    
+                    galleryGrid.appendChild(item);
+                });
+                
+                anime({
+                    targets: galleryOverlay,
+                    opacity: [0, 1],
+                    duration: 300,
+                    easing: 'easeOutQuad'
+                });
+            }
+            
+            closeGallery() {
+                const galleryOverlay = document.getElementById('galleryOverlay');
+                
+                anime({
+                    targets: galleryOverlay,
+                    opacity: [1, 0],
+                    duration: 300,
+                    easing: 'easeInQuad',
+                    complete: () => {
+                        galleryOverlay.style.display = 'none';
+                    }
+                });
+            }
+            
+            showSinglePhoto(photoId) {
+                const photo = this.photos.find(p => p.id === photoId);
+                
+                if (!photo) {
+                    console.error('Photo not found:', photoId);
+                    alert('Photo not found. Redirecting to gallery...');
+                    window.location.hash = '#gallery';
+                    return;
+                }
+                
+                this.currentPhotoId = photoId;
+                
+                const singlePhotoView = document.getElementById('singlePhotoView');
+                const singlePhotoImage = document.getElementById('singlePhotoImage');
+                const singlePhotoTitle = document.getElementById('singlePhotoTitle');
+                const shareLink = document.getElementById('shareLink');
+                
+                // Set photo data
+                singlePhotoImage.src = photo.dataUrl;
+                singlePhotoTitle.textContent = `Photo: ${photoId}`;
+                
+                // Generate share URL
+                const shareUrl = `${window.location.origin}${window.location.pathname}#photo=${photoId}`;
+                shareLink.value = shareUrl;
+                
+                // Show view
+                singlePhotoView.style.display = 'block';
+                anime({
+                    targets: singlePhotoView,
+                    opacity: [0, 1],
+                    duration: 300,
+                    easing: 'easeOutQuad'
+                });
+            }
+            
+            closeSinglePhotoView() {
+                const singlePhotoView = document.getElementById('singlePhotoView');
+                const currentDisplay = window.getComputedStyle(singlePhotoView).display;
+                
+                if (currentDisplay !== 'none') {
+                    anime({
+                        targets: singlePhotoView,
+                        opacity: [1, 0],
+                        duration: 300,
+                        easing: 'easeInQuad',
+                        complete: () => {
+                            singlePhotoView.style.display = 'none';
+                        }
+                    });
+                }
+            }
+            
+            backToGallery() {
+                window.location.hash = '#gallery';
+            }
+            
+            shareToTwitter() {
+                const shareUrl = document.getElementById('shareLink').value;
+                const text = encodeURIComponent('Check out my photo from XR Motion Conference 2025! 📸');
+                const twitterUrl = `https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(shareUrl)}`;
+                window.open(twitterUrl, '_blank');
+            }
+            
+            shareToFacebook() {
+                const shareUrl = document.getElementById('shareLink').value;
+                const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+                window.open(facebookUrl, '_blank');
+            }
+            
+            copyInstagramLink() {
+                const shareUrl = document.getElementById('shareLink').value;
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    alert('Link copied! Paste it in your Instagram bio or story.');
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                });
+            }
+            
+            downloadCurrentPhoto() {
+                if (!this.currentPhotoId) return;
+                
+                const photo = this.photos.find(p => p.id === this.currentPhotoId);
+                if (!photo) return;
+                
+                const link = document.createElement('a');
+                link.href = photo.dataUrl;
+                link.download = `${photo.id}.jpg`;
+                link.click();
+            }
+            
+            copyShareLink() {
+                const shareLink = document.getElementById('shareLink');
+                shareLink.select();
+                navigator.clipboard.writeText(shareLink.value).then(() => {
+                    alert('Link copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                });
+            }
+            
+            toggleDebugPanel() {
+                const debugOverlay = document.getElementById('debugOverlay');
+                const isVisible = debugOverlay.style.display === 'flex';
+                
+                if (isVisible) {
+                    this.closeDebugPanel();
+                } else {
+                    this.openDebugPanel();
+                }
+            }
+            
+            openDebugPanel() {
+                const debugOverlay = document.getElementById('debugOverlay');
+                debugOverlay.style.display = 'flex';
+
+                anime({
+                    targets: debugOverlay,
+                    opacity: [0, 1],
+                    duration: 300,
+                    easing: 'easeOutQuad'
+                });
+            }
+            
+            closeDebugPanel() {
+                const debugOverlay = document.getElementById('debugOverlay');
+                
+                anime({
+                    targets: debugOverlay,
+                    opacity: [1, 0],
+                    duration: 300,
+                    easing: 'easeInQuad',
+                    complete: () => {
+                        debugOverlay.style.display = 'none';
+                    }
+                });
+            }
+            
+            closeAllOverlays() {
+                this.closeGallery();
+                this.closeDebugPanel();
+            }
+            
+            generateUniqueId() {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                return `XRMotion_Conf2025-${hours}${minutes}${seconds}`;
+            }
+            
+            async savePhotosToStorage() {
+                try {
+                    // Using localStorage simulation since IndexedDB would be more complex
+                    const photosData = this.photos.map(photo => ({
+                        id: photo.id,
+                        timestamp: photo.timestamp,
+                        settings: photo.settings,
+                        // Store smaller thumbnails for performance
+                        thumbnail: this.createThumbnail(photo.dataUrl)
+                    }));
+                    
+                    // In a real implementation, you'd use IndexedDB here
+                    console.log('Photos saved to storage:', photosData.length);
+                    this.updateSystemStatus('storageStatus', `Storage: ${this.photos.length} photos`, 'success');
+                } catch (error) {
+                    console.error('Storage save failed:', error);
+                    this.updateSystemStatus('storageStatus', 'Storage: Error', 'error');
+                }
+            }
+            
+            async loadPhotosFromStorage() {
+                try {
+                    // In a real implementation, you'd load from IndexedDB here
+                    console.log('Loading photos from storage...');
+                    this.updateSystemStatus('storageStatus', 'Storage: Ready', 'success');
+                } catch (error) {
+                    console.error('Storage load failed:', error);
+                }
+            }
+            
+            createThumbnail(dataUrl) {
+                // Create a smaller version for storage efficiency
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                
+                return new Promise((resolve) => {
+                    img.onload = () => {
+                        canvas.width = 200;
+                        canvas.height = 150;
+                        ctx.drawImage(img, 0, 0, 200, 150);
+                        resolve(canvas.toDataURL('image/jpeg', 0.7));
+                    };
+                    img.src = dataUrl;
+                });
+            }
+            
+            updateSystemStatus(elementId, text, status) {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    element.className = `status-indicator status-${status}`;
+                    element.innerHTML = `<span>●</span> ${text}`;
+                }
+            }
+            
+            // Test functions for debug panel
+            testCountdown() {
+                if (!this.countdownActive) {
+                    const countdownDisplay = document.getElementById('countdownDisplay');
+                    if (countdownDisplay) {
+                        this.startCountdown(countdownDisplay);
+                    }
+                }
+            }
+            
+            testPhotoCapture() {
+                if (!this.isCapturing && !this.countdownActive) {
+                    this.capturePhoto();
+                }
+            }
+            
+            testQRGeneration() {
+                const testId = 'test_' + Date.now();
+                this.generateQRCode(testId);
+            }
+            
+            resetToDefaults() {
+                this.settings = {
+                    stompDelay: 1000,
+                    countdownDuration: 3,
+                    displayDuration: 12000,
+                    progressDuration: 15000,
+                    photoQuality: 0.92,
+                    resolution: '1920x1080',
+                    brightness: 0,
+                    contrast: 100,
+                    saturation: 100,
+                    hue: 0,
+                    cameraSize: 60,
+                    cameraLeft: 50,
+                    cameraTop: 50,
+                    cameraWidth: 60,
+                    showInstructions: true,
+                    showBranding: true,
+                    showKeyHints: true,
+                    showStompboxIndicator: true,
+                    countdownBottomVH: 12,
+                    countdownLeftVW: 50,
+                    countdownSizeVW: 8,
+                    countdownStepMs: 2000,
+                    countdownSmileHoldMs: 1200,
+                    stompboxTopVH: 75,
+                    stompboxLeftVW: 40,
+                    stompboxFontPX: 25,
+                    instructionsBottomPX: 100,
+                    instructionsWidthPercent: 20,
+                    qrOverrideUrl: '',
+                    backgroundImageUrl: 'xrmotionconf-bg.png',
+                    backgroundImageData: '',
+                    countdown3Ms: 2000,
+                    countdown2Ms: 2000,
+                    countdown1Ms: 2000,
+                    textCountdown3: '3',
+                    textCountdown2: '2',
+                    textCountdown1: '1',
+                    textSmile: 'Smile!',
+                    textStompboxActivated: '📸 Stompbox Activated - Get Ready!',
+                    textBranding: 'XR Motion Conference 2025',
+                    textInstructions: 'Step lightly on the button to snap a photo, then wait for the QR code!',
+                    textKeyHints: "Press 'G' for Gallery • 'D' for Debug • Spacebar to simulate stompbox",
+                    colorCountdown: '#ffffff',
+                    colorBranding: '#ffffff',
+                    colorInstructions: '#F4F3FF',
+                    colorKeyHints: '#F4F3FF'
+                };
+
+                this.setupDebugPanel();
+                this.updateCameraFilters();
+                this.updateCameraSize();
+                this.updateUIElements();
+                this.updateElementPositions();
+            }
+
+        }
+        
+        // Global functions for button events
+        function closeGallery() {
+            photoBoothApp.closeGallery();
+        }
+        
+        function closeDebugPanel() {
+            photoBoothApp.closeDebugPanel();
+        }
+        
+        function exportSelected() {
+            if (photoBoothApp.photos.length === 0) {
+                alert('No photos to export!');
+                return;
+            }
+
+            // Get selected photos (or all photos if none selected)
+            const selectedPhotos = photoBoothApp.getSelectedPhotos();
+
+            if (selectedPhotos.length === 0) {
+                alert('No photos selected for export!');
+                return;
+            }
+
+            // Create a download link for each selected photo
+            selectedPhotos.forEach((photo) => {
+                const timestamp = new Date(photo.timestamp);
+                const timeString = `${String(timestamp.getHours()).padStart(2, '0')}${String(timestamp.getMinutes()).padStart(2, '0')}${String(timestamp.getSeconds()).padStart(2, '0')}`;
+                const filename = `XRMotion_Conf2025-${timeString}.jpg`;
+
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = photo.dataUrl;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+
+            alert(`Exported ${selectedPhotos.length} photo(s) successfully!`);
+        }
+        
+        function clearGallery() {
+            if (confirm('Are you sure you want to clear all photos? This cannot be undone.')) {
+                photoBoothApp.photos = [];
+                photoBoothApp.savePhotosToStorage();
+                photoBoothApp.openGallery(); // Refresh the gallery view
+            }
+        }
+        
+        function testCountdown() {
+            photoBoothApp.testCountdown();
+        }
+        
+        function testPhotoCapture() {
+            photoBoothApp.testPhotoCapture();
+        }
+        
+        function testQRGeneration() {
+            photoBoothApp.testQRGeneration();
+        }
+        
+        function exportSettings() {
+            photoBoothApp.exportSettings();
+        }
+        
+        function importSettings() {
+            document.getElementById('importSettingsFile').click();
+        }
+        
+        function resetToDefaults() {
+            if (confirm('Reset all settings to defaults? This will clear custom backgrounds and QR overrides.')) {
+                photoBoothApp.resetToDefaults();
+            }
+        }
+        
+        // Initialize the application
+        let photoBoothApp;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            photoBoothApp = new PhotoBoothApp();
+        });
+    </script>
+</body>
+</html>
