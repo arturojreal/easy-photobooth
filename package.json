@@ -1,8 +1,17 @@
 {
-  "name": "xr-motion-photobooth",
+  "name": "easy-photobooth",
   "version": "1.0.0",
-  "description": "XR Motion Photobooth with cloud storage",
+  "description": "A modern, interactive photobooth application with cloud storage, QR code sharing, and real-time photo gallery",
   "main": "index.html",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arturojreal/easy-photobooth.git"
+  },
+  "homepage": "https://github.com/arturojreal/easy-photobooth#readme",
+  "bugs": {
+    "url": "https://github.com/arturojreal/easy-photobooth/issues"
+  },
+  "author": "Arturo J Real",
   "scripts": {
     "dev": "netlify dev",
     "build": "echo 'No build step required'",
@@ -13,5 +22,21 @@
   },
   "devDependencies": {
     "netlify-cli": "^17.0.0"
+  },
+  "keywords": [
+    "photobooth",
+    "event",
+    "cloudinary",
+    "qr-code",
+    "interactive",
+    "photo-booth",
+    "event-photography",
+    "webcam",
+    "camera"
+  ],
+  "license": "MIT",
+  "funding": {
+    "type": "kofi",
+    "url": "https://ko-fi.com/arturojreal"
   }
 }

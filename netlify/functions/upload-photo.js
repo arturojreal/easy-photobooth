@@ -39,12 +39,14 @@ exports.handler = async (event, context) => {
       };
     }
 
+    const folderName = process.env.CLOUDINARY_FOLDER || 'photobooth';
+
     // Upload to Cloudinary
     const uploadResult = await cloudinary.uploader.upload(image, {
-      public_id: `xr-photobooth/${photoId}`,
-      folder: 'xr-photobooth',
+      public_id: `${folderName}/${photoId}`,
+      folder: folderName,
       resource_type: 'image',
-      tags: ['xr-photobooth', 'motion-capture']
+      tags: ['photobooth', 'event-photos']
     });
 
     return {

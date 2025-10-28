@@ -29,11 +29,12 @@ exports.handler = async (event, context) => {
   try {
     const maxResults = parseInt(event.queryStringParameters?.max_results || '50');
     const nextCursor = event.queryStringParameters?.next_cursor;
+    const folderName = process.env.CLOUDINARY_FOLDER || 'photobooth';
 
     // List resources from Cloudinary
     const result = await cloudinary.api.resources({
       type: 'upload',
-      prefix: 'xr-photobooth/',
+      prefix: `${folderName}/`,
       max_results: Math.min(maxResults, 100),
       next_cursor: nextCursor,
       resource_type: 'image'
@@ -42,9 +43,9 @@ exports.handler = async (event, context) => {
     const photos = result.resources.map(resource => {
       // Extract clean photo ID by removing all instances of the prefix
       let photoId = resource.public_id;
-      // Remove all occurrences of 'xr-photobooth/' prefix
-      while (photoId.includes('xr-photobooth/')) {
-        photoId = photoId.replace('xr-photobooth/', '');
+      // Remove all occurrences of folder prefix
+      while (photoId.includes(`${folderName}/`)) {
+        photoId = photoId.replace(`${folderName}/`, '');
       }
       
       return {

@@ -37,8 +37,10 @@ exports.handler = async (event, context) => {
       };
     }
 
+    const folderName = process.env.CLOUDINARY_FOLDER || 'photobooth';
+
     // Get resource details from Cloudinary
-    const result = await cloudinary.api.resource(`xr-photobooth/${photoId}`, {
+    const result = await cloudinary.api.resource(`${folderName}/${photoId}`, {
       resource_type: 'image'
     });
 

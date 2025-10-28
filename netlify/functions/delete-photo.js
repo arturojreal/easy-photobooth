@@ -40,15 +40,17 @@ exports.handler = async (event, context) => {
 
     console.log(`Deleting ${photoIds.length} photo(s):`, photoIds);
 
+    const folderName = process.env.CLOUDINARY_FOLDER || 'photobooth';
+
     // Convert photo IDs to Cloudinary public IDs
     // Add prefix only if not already present
     const publicIds = photoIds.map(id => {
       // If ID already has the prefix, use as-is
-      if (id.startsWith('xr-photobooth/')) {
+      if (id.startsWith(`${folderName}/`)) {
         return id;
       }
       // Otherwise add the prefix
-      return `xr-photobooth/xr-photobooth/${id}`;
+      return `${folderName}/${folderName}/${id}`;
     });
 
     console.log('Cloudinary public IDs to delete:', publicIds);
