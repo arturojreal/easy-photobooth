@@ -152,25 +152,24 @@ export function renderGalleryGrid(photos, selectedPhotos, opts, onToggleSelect, 
         timestamp.textContent = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
 
         // URL / status section
-        const urlSection       = document.createElement('div');
-        urlSection.className   = 'gallery-url-section';
-        urlSection.style.cssText = 'margin-top:5px;font-size:11px;display:flex;align-items:center;gap:5px;';
+        const urlSection     = document.createElement('div');
+        urlSection.className = 'gallery-url-section';
         if (hideAdminUI) urlSection.style.display = 'none';
 
         if (photo.uploading) {
-            urlSection.innerHTML = '<span style="color:var(--warning-color);">⏳ Uploading...</span>';
+            urlSection.innerHTML = '<span class="gallery-url-status gallery-url-uploading">⏳ Uploading...</span>';
         } else if (photo.publicUrl) {
             const urlInput    = document.createElement('input');
             urlInput.type     = 'text';
             urlInput.value    = photo.publicUrl;
             urlInput.readOnly = true;
-            urlInput.style.cssText = 'flex:1;padding:4px;font-size:10px;background:rgba(255,255,255,0.1);border:1px solid var(--border-color);border-radius:4px;color:var(--text-color);';
+            urlInput.className = 'gallery-url-input';
 
-            const copyBtn     = document.createElement('button');
+            const copyBtn       = document.createElement('button');
             copyBtn.textContent = '📋';
-            copyBtn.title     = 'Copy URL';
-            copyBtn.style.cssText = 'padding:4px 8px;background:var(--primary-color);border:none;border-radius:4px;cursor:pointer;font-size:14px;';
-            copyBtn.onclick   = e => {
+            copyBtn.title       = 'Copy URL';
+            copyBtn.className   = 'gallery-url-copy-btn';
+            copyBtn.onclick     = e => {
                 e.stopPropagation();
                 navigator.clipboard.writeText(photo.publicUrl).then(() => {
                     copyBtn.textContent = '✅';
@@ -181,18 +180,17 @@ export function renderGalleryGrid(photos, selectedPhotos, opts, onToggleSelect, 
             urlSection.appendChild(urlInput);
             urlSection.appendChild(copyBtn);
         } else if (photo.uploadError) {
-            urlSection.innerHTML = '<span style="color:var(--error-color);">❌ Upload failed</span>';
+            urlSection.innerHTML = '<span class="gallery-url-status gallery-url-error">❌ Upload failed</span>';
         }
 
         // Delete button (admin only)
         const showDelete = (opts.isMobile && opts.mobileAdminEnabled)
                         || (!opts.isMobile && (!opts.isPublicGallery || opts.adminControlsVisible));
         if (showDelete) {
-            const deleteBtn       = document.createElement('button');
-            deleteBtn.className   = 'gallery-delete-btn';
-            deleteBtn.innerHTML   = '🗑️ Delete';
-            deleteBtn.style.cssText = 'margin-top:8px;padding:6px 12px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;width:100%;';
-            deleteBtn.onclick     = async e => {
+            const deleteBtn     = document.createElement('button');
+            deleteBtn.className = 'gallery-delete-btn btn btn-danger';
+            deleteBtn.innerHTML = '🗑️ Delete';
+            deleteBtn.onclick   = async e => {
                 e.stopPropagation();
                 if (confirm('Delete this photo? This cannot be undone.')) {
                     await onDeleteSingle(photo.id);
