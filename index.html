@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interactive Photobooth</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
@@ -23,10 +24,11 @@
         <div class="instructions-container">Press the button to take a photo!</div>
 
         <div class="branding"><h2>Event Photobooth</h2></div>
-        
+
+        <!-- ── Post-Capture Result ────────────────────── -->
         <div class="photo-result-container" id="photoResult">
             <img class="captured-photo" id="capturedPhoto" alt="Captured Photo">
-            
+
             <div class="qr-section">
                 <h3 style="margin: 0 0 20px 0; font-size: 24px;">Gallery</h3>
                 <div id="galleryQRCode" class="qr-code"></div>
@@ -35,29 +37,31 @@
                     Access your complete photo gallery
                 </div>
             </div>
-            
+
             <div class="progress-container">
                 <div class="progress-bar" id="progressBar"></div>
             </div>
         </div>
-        
+
+        <!-- ── Gallery ───────────────────────────────── -->
         <div class="gallery-overlay" id="galleryOverlay">
             <div class="gallery-header">
                 <h2 class="gallery-title" id="galleryTitle">Photo Gallery</h2>
                 <div class="gallery-controls">
                     <button class="btn btn-secondary" onclick="photoBoothApp.selectAllPhotos()">Select All</button>
                     <button class="btn btn-secondary" onclick="photoBoothApp.clearSelection()">Clear Selection</button>
-                    <button class="btn btn-danger" onclick="photoBoothApp.deleteSelectedPhotos()" style="background: #dc3545;">Delete Selected</button>
+                    <button class="btn btn-danger" onclick="photoBoothApp.deleteSelectedPhotos()">Delete Selected</button>
                     <button class="btn btn-secondary" onclick="exportSelected()">Export Selected</button>
-                    <button class="btn" onclick="closeGallery()">Close (ESC)</button>
+                    <button class="btn btn-secondary" onclick="closeGallery()">Close (ESC)</button>
                 </div>
             </div>
             <div class="gallery-grid" id="galleryGrid"></div>
         </div>
-        
+
+        <!-- ── Single Photo View ───────────────────────── -->
         <div class="single-photo-view" id="singlePhotoView">
             <div class="single-photo-header">
-                <button class="btn btn-back" onclick="photoBoothApp.backToGallery()">← Back to Gallery</button>
+                <button class="btn-back" onclick="photoBoothApp.backToGallery()">← Back to Gallery</button>
                 <h2 class="single-photo-title" id="singlePhotoTitle">Your Photo</h2>
             </div>
             <div class="single-photo-container">
@@ -90,382 +94,402 @@
                 </div>
             </div>
         </div>
-        
+
+        <!-- ── Debug / Settings Panel ──────────────────── -->
         <div class="debug-overlay" id="debugOverlay">
             <div class="debug-panel">
-                <h2 style="text-align: center; margin-bottom: 30px;">Debug Panel</h2>
-                
-                <div class="debug-section">
-                    <h3>Camera Settings</h3>
-                    <div class="debug-controls">
-                        <div class="control-group">
-                            <label>Camera Source</label>
-                            <select id="cameraSelect"></select>
-                        </div>
-                        <div class="control-group">
-                            <label>Brightness: <span id="brightnessValue">0</span></label>
-                            <input type="range" id="brightness" min="-100" max="100" value="0">
-                        </div>
-                        <div class="control-group">
-                            <label>Contrast: <span id="contrastValue">100</span>%</label>
-                            <input type="range" id="contrast" min="50" max="200" value="100">
-                        </div>
-                        <div class="control-group">
-                            <label>Saturation: <span id="saturationValue">100</span>%</label>
-                            <input type="range" id="saturation" min="0" max="200" value="100">
-                        </div>
-                        <div class="control-group">
-                            <label>Hue: <span id="hueValue">0</span>°</label>
-                            <input type="range" id="hue" min="-180" max="180" value="0">
-                        </div>
-                    </div>
+
+                <!-- Sticky header with close button -->
+                <div class="debug-panel-header">
+                    <h2>⚙️ Settings</h2>
+                    <button class="btn btn-secondary" onclick="closeDebugPanel()">✕ Close</button>
                 </div>
 
-                <div class="debug-section">
-                    <h3>Element Positioning</h3>
-                    <div class="debug-controls">
-                        <div class="control-group">
-                            <label>Camera Left: <span id="cameraLeftValue">50</span>%</label>
-                            <input type="range" id="cameraLeft" min="0" max="100" value="50">
-                        </div>
-                        <div class="control-group">
-                            <label>Camera Top: <span id="cameraTopValue">50</span>%</label>
-                            <input type="range" id="cameraTop" min="0" max="100" value="50">
-                        </div>
-                        <div class="control-group">
-                            <label>Camera Width: <span id="cameraWidthValue">87</span>%</label>
-                            <input type="range" id="cameraWidth" min="20" max="100" value="87">
-                        </div>
-                        <div class="control-group">
-                            <label>Countdown Bottom: <span id="countdownBottomVHValue">12</span>vh</label>
-                            <input type="range" id="countdownBottomVH" min="0" max="50" value="12">
-                        </div>
-                        <div class="control-group">
-                            <label>Countdown Left: <span id="countdownLeftVWValue">50</span>vw</label>
-                            <input type="range" id="countdownLeftVW" min="0" max="100" value="50">
-                        </div>
-                        <div class="control-group">
-                            <label>Countdown Size: <span id="countdownSizeVWValue">8</span>vw</label>
-                            <input type="range" id="countdownSizeVW" min="4" max="20" value="8">
-                        </div>
-                        <div class="control-group">
-                            <label>Stompbox Top: <span id="stompboxTopVHValue">80</span>vh</label>
-                            <input type="range" id="stompboxTopVH" min="0" max="100" value="80">
-                        </div>
-                        <div class="control-group">
-                            <label>Stompbox Left: <span id="stompboxLeftVWValue">50</span>vw</label>
-                            <input type="range" id="stompboxLeftVW" min="0" max="100" value="50">
-                        </div>
-                        <div class="control-group">
-                            <label>Stompbox Font: <span id="stompboxFontPXValue">25</span>px</label>
-                            <input type="range" id="stompboxFontPX" min="12" max="40" value="25">
-                        </div>
-                        <div class="control-group">
-                            <label>Instructions Bottom: <span id="instructionsBottomPXValue">17</span>px</label>
-                            <input type="range" id="instructionsBottomPX" min="0" max="200" value="17">
-                        </div>
-                        <div class="control-group">
-                            <label>Instructions Width: <span id="instructionsWidthPercentValue">40</span>%</label>
-                            <input type="range" id="instructionsWidthPercent" min="40" max="100" value="40">
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="debug-section">
-                    <h3>Timing Settings</h3>
-                    <div class="debug-controls">
-                        <div class="control-group">
-                            <label>Stompbox Delay: <span id="stompDelayValue">1000</span>ms</label>
-                            <input type="range" id="stompDelay" min="0" max="5000" value="1000">
-                        </div>
-                        <div class="control-group">
-                            <label>Countdown Duration: <span id="countdownDurationValue">3</span>s</label>
-                            <input type="range" id="countdownDuration" min="1" max="10" value="3">
-                        </div>
-                        <div class="control-group">
-                            <label>"3" Duration (ms): <span id="countdown3MsValue">1000</span></label>
-                            <input type="range" id="countdown3Ms" min="500" max="5000" step="100" value="1000">
-                        </div>
-                        <div class="control-group">
-                            <label>"2" Duration (ms): <span id="countdown2MsValue">1000</span></label>
-                            <input type="range" id="countdown2Ms" min="500" max="5000" step="100" value="1000">
-                        </div>
-                        <div class="control-group">
-                            <label>"1" Duration (ms): <span id="countdown1MsValue">1000</span></label>
-                            <input type="range" id="countdown1Ms" min="500" max="5000" step="100" value="1000">
-                        </div>
-                        <div class="control-group">
-                            <label>Smile Hold (ms): <span id="countdownSmileHoldMsValue">1000</span></label>
-                            <input type="range" id="countdownSmileHoldMs" min="300" max="3000" step="100" value="1000">
-                        </div>
-                        <div class="control-group">
-                            <label>Display Duration: <span id="displayDurationValue">12</span>s</label>
-                            <input type="range" id="displayDuration" min="5" max="30" value="12">
-                        </div>
-                        <div class="control-group">
-                            <label>Progress Duration: <span id="progressDurationValue">15</span>s</label>
-                            <input type="range" id="progressDuration" min="5" max="30" value="15">
-                        </div>
-                        <div class="control-group">
-                            <label>Capture Lockout: <span id="captureLockoutSecondsValue">10</span>s</label>
-                            <input type="range" id="captureLockoutSeconds" min="0" max="60" value="10">
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="debug-section">
-                    <h3>Photo Settings</h3>
-                    <div class="debug-controls">
-                        <div class="control-group">
-                            <label>Photo Quality: <span id="photoQualityValue">0.92</span></label>
-                            <input type="range" id="photoQuality" min="0.1" max="1" step="0.01" value="0.92">
-                        </div>
-                        <div class="control-group">
-                            <label>Resolution</label>
-                            <select id="resolution">
-                                <option value="1920x1080">1920x1080 (Full HD)</option>
-                                <option value="1280x720">1280x720 (HD)</option>
-                                <option value="3840x2160">3840x2160 (4K)</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="debug-section">
-                    <h3>Editable Text</h3>
-                    <div class="debug-controls">
-                        <div class="control-group">
-                            <label>Countdown "3" Text</label>
-                            <input type="text" id="textCountdown3" value="3">
-                        </div>
-                        <div class="control-group">
-                            <label>Countdown "2" Text</label>
-                            <input type="text" id="textCountdown2" value="2">
-                        </div>
-                        <div class="control-group">
-                            <label>Countdown "1" Text</label>
-                            <input type="text" id="textCountdown1" value="1">
-                        </div>
-                        <div class="control-group">
-                            <label>"Smile!" Text</label>
-                            <input type="text" id="textSmile" value="Smile!">
-                        </div>
-                        <div class="control-group">
-                            <label>Stompbox Activated Text</label>
-                            <input type="text" id="textStompboxActivated" value="Get Ready!">
-                        </div>
-                        <div class="control-group">
-                            <label>Branding Text</label>
-                            <input type="text" id="textBranding" value="Event Photobooth">
-                        </div>
-                        <div class="control-group">
-                            <label>Instructions Text</label>
-                            <input type="text" id="textInstructions" value="Press the button to take a photo!">
-                        </div>
-                        <div class="control-group">
-                            <label>Key Hints Text</label>
-                            <input type="text" id="textKeyHints" value="Press 'G' for Gallery • 'D' for Debug • Spacebar to capture">
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="debug-section">
-                    <h3>Text Colors</h3>
-                    <div class="debug-controls">
-                        <div class="control-group">
-                            <label>Countdown Color</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="colorCountdown" value="#ffffff" style="width: 60px; height: 40px;">
-                                <input type="text" id="colorCountdownHex" value="#ffffff" placeholder="#ffffff" style="flex: 1;">
+                <div class="debug-panel-body">
+
+                    <!-- 1 ── Camera ──────────────────────────── -->
+                    <details class="debug-section">
+                        <summary><h3>🎥 Camera</h3><span class="chevron">▶</span></summary>
+                        <div class="debug-controls">
+                            <div class="control-group">
+                                <label>Camera Source</label>
+                                <select id="cameraSelect"></select>
+                            </div>
+                            <div class="control-group">
+                                <label>Brightness: <span id="brightnessValue">0</span></label>
+                                <input type="range" id="brightness" min="-100" max="100" value="0">
+                            </div>
+                            <div class="control-group">
+                                <label>Contrast: <span id="contrastValue">100</span>%</label>
+                                <input type="range" id="contrast" min="50" max="200" value="100">
+                            </div>
+                            <div class="control-group">
+                                <label>Saturation: <span id="saturationValue">100</span>%</label>
+                                <input type="range" id="saturation" min="0" max="200" value="100">
+                            </div>
+                            <div class="control-group">
+                                <label>Hue: <span id="hueValue">0</span>°</label>
+                                <input type="range" id="hue" min="-180" max="180" value="0">
                             </div>
                         </div>
-                        <div class="control-group">
-                            <label>Branding Color</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="colorBranding" value="#ffffff" style="width: 60px; height: 40px;">
-                                <input type="text" id="colorBrandingHex" value="#ffffff" placeholder="#ffffff" style="flex: 1;">
+                    </details>
+
+                    <!-- 2 ── Timing ──────────────────────────── -->
+                    <details class="debug-section">
+                        <summary><h3>⏱ Timing</h3><span class="chevron">▶</span></summary>
+                        <div class="debug-controls">
+                            <div class="control-group">
+                                <label>Stompbox Delay: <span id="stompDelayValue">1000</span>ms</label>
+                                <input type="range" id="stompDelay" min="0" max="5000" value="1000">
+                            </div>
+                            <div class="control-group">
+                                <label>Countdown Duration: <span id="countdownDurationValue">3</span>s</label>
+                                <input type="range" id="countdownDuration" min="1" max="10" value="3">
+                            </div>
+                            <div class="control-group">
+                                <label>"3" Duration (ms): <span id="countdown3MsValue">1000</span></label>
+                                <input type="range" id="countdown3Ms" min="500" max="5000" step="100" value="1000">
+                            </div>
+                            <div class="control-group">
+                                <label>"2" Duration (ms): <span id="countdown2MsValue">1000</span></label>
+                                <input type="range" id="countdown2Ms" min="500" max="5000" step="100" value="1000">
+                            </div>
+                            <div class="control-group">
+                                <label>"1" Duration (ms): <span id="countdown1MsValue">1000</span></label>
+                                <input type="range" id="countdown1Ms" min="500" max="5000" step="100" value="1000">
+                            </div>
+                            <div class="control-group">
+                                <label>Smile Hold (ms): <span id="countdownSmileHoldMsValue">1000</span></label>
+                                <input type="range" id="countdownSmileHoldMs" min="300" max="3000" step="100" value="1000">
+                            </div>
+                            <div class="control-group">
+                                <label>Display Duration: <span id="displayDurationValue">12</span>s</label>
+                                <input type="range" id="displayDuration" min="5" max="30" value="12">
+                            </div>
+                            <div class="control-group">
+                                <label>Progress Duration: <span id="progressDurationValue">15</span>s</label>
+                                <input type="range" id="progressDuration" min="5" max="30" value="15">
+                            </div>
+                            <div class="control-group">
+                                <label>Capture Lockout: <span id="captureLockoutSecondsValue">10</span>s</label>
+                                <input type="range" id="captureLockoutSeconds" min="0" max="60" value="10">
                             </div>
                         </div>
-                        <div class="control-group">
-                            <label>Instructions Color</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="colorInstructions" value="#F4F3FF" style="width: 60px; height: 40px;">
-                                <input type="text" id="colorInstructionsHex" value="#F4F3FF" placeholder="#F4F3FF" style="flex: 1;">
+                    </details>
+
+                    <!-- 3 ── Photo Quality ─────────────────────── -->
+                    <details class="debug-section">
+                        <summary><h3>📸 Photo Quality</h3><span class="chevron">▶</span></summary>
+                        <div class="debug-controls">
+                            <div class="control-group">
+                                <label>Photo Quality: <span id="photoQualityValue">0.92</span></label>
+                                <input type="range" id="photoQuality" min="0.1" max="1" step="0.01" value="0.92">
+                            </div>
+                            <div class="control-group">
+                                <label>Resolution</label>
+                                <select id="resolution">
+                                    <option value="1920x1080">1920x1080 (Full HD)</option>
+                                    <option value="1280x720">1280x720 (HD)</option>
+                                    <option value="3840x2160">3840x2160 (4K)</option>
+                                </select>
                             </div>
                         </div>
-                        <div class="control-group">
-                            <label>Key Hints Color</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="colorKeyHints" value="#F4F3FF" style="width: 60px; height: 40px;">
-                                <input type="text" id="colorKeyHintsHex" value="#F4F3FF" placeholder="#F4F3FF" style="flex: 1;">
+                    </details>
+
+                    <!-- 4 ── On-Screen Text ────────────────────── -->
+                    <details class="debug-section">
+                        <summary><h3>✏️ On-Screen Text</h3><span class="chevron">▶</span></summary>
+                        <div class="debug-controls">
+                            <div class="control-group">
+                                <label>Countdown "3" Text</label>
+                                <input type="text" id="textCountdown3" value="3">
+                            </div>
+                            <div class="control-group">
+                                <label>Countdown "2" Text</label>
+                                <input type="text" id="textCountdown2" value="2">
+                            </div>
+                            <div class="control-group">
+                                <label>Countdown "1" Text</label>
+                                <input type="text" id="textCountdown1" value="1">
+                            </div>
+                            <div class="control-group">
+                                <label>"Smile!" Text</label>
+                                <input type="text" id="textSmile" value="Smile!">
+                            </div>
+                            <div class="control-group">
+                                <label>Stompbox Activated Text</label>
+                                <input type="text" id="textStompboxActivated" value="Get Ready!">
+                            </div>
+                            <div class="control-group">
+                                <label>Branding Text</label>
+                                <input type="text" id="textBranding" value="Event Photobooth">
+                            </div>
+                            <div class="control-group">
+                                <label>Instructions Text</label>
+                                <input type="text" id="textInstructions" value="Press the button to take a photo!">
+                            </div>
+                            <div class="control-group">
+                                <label>Key Hints Text</label>
+                                <input type="text" id="textKeyHints" value="Press 'G' for Gallery • 'D' for Debug • Spacebar to capture">
                             </div>
                         </div>
-                        <div class="control-group">
-                            <label>Stompbox Color</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="colorStompbox" value="#ffffff" style="width: 60px; height: 40px;">
-                                <input type="text" id="colorStompboxHex" value="#ffffff" placeholder="#ffffff" style="flex: 1;">
+                    </details>
+
+                    <!-- 5 ── Colors ────────────────────────────── -->
+                    <details class="debug-section">
+                        <summary><h3>🎨 Colors</h3><span class="chevron">▶</span></summary>
+                        <div class="color-pair-grid">
+                            <div class="color-pair-header">Text Color</div>
+                            <div class="color-pair-header">Background Color</div>
+
+                            <!-- Countdown -->
+                            <div class="color-pair-row">
+                                <label>Countdown</label>
+                                <div class="color-swatch-row">
+                                    <input type="color" id="colorCountdown" value="#ffffff">
+                                    <input type="text" id="colorCountdownHex" value="#ffffff" placeholder="#ffffff">
+                                </div>
+                            </div>
+                            <div class="color-pair-row">
+                                <label>Countdown Background</label>
+                                <div class="color-swatch-row">
+                                    <input type="color" id="bgColorCountdown" value="#000000">
+                                    <input type="text" id="bgColorCountdownHex" value="transparent" placeholder="transparent">
+                                </div>
+                            </div>
+
+                            <!-- Branding -->
+                            <div class="color-pair-row">
+                                <label>Branding</label>
+                                <div class="color-swatch-row">
+                                    <input type="color" id="colorBranding" value="#ffffff">
+                                    <input type="text" id="colorBrandingHex" value="#ffffff" placeholder="#ffffff">
+                                </div>
+                            </div>
+                            <div class="color-pair-row">
+                                <label>Branding Background</label>
+                                <div class="color-swatch-row">
+                                    <input type="color" id="bgColorBranding" value="#000000">
+                                    <input type="text" id="bgColorBrandingHex" value="transparent" placeholder="transparent">
+                                </div>
+                            </div>
+
+                            <!-- Instructions -->
+                            <div class="color-pair-row">
+                                <label>Instructions</label>
+                                <div class="color-swatch-row">
+                                    <input type="color" id="colorInstructions" value="#F4F3FF">
+                                    <input type="text" id="colorInstructionsHex" value="#F4F3FF" placeholder="#F4F3FF">
+                                </div>
+                            </div>
+                            <div class="color-pair-row">
+                                <label>Instructions Background</label>
+                                <div class="color-swatch-row">
+                                    <input type="color" id="bgColorInstructions" value="#000000">
+                                    <input type="text" id="bgColorInstructionsHex" value="transparent" placeholder="transparent">
+                                </div>
+                            </div>
+
+                            <!-- Key Hints -->
+                            <div class="color-pair-row">
+                                <label>Key Hints</label>
+                                <div class="color-swatch-row">
+                                    <input type="color" id="colorKeyHints" value="#F4F3FF">
+                                    <input type="text" id="colorKeyHintsHex" value="#F4F3FF" placeholder="#F4F3FF">
+                                </div>
+                            </div>
+                            <div class="color-pair-row">
+                                <label>Key Hints Background</label>
+                                <div class="color-swatch-row">
+                                    <input type="color" id="bgColorKeyHints" value="#000000">
+                                    <input type="text" id="bgColorKeyHintsHex" value="transparent" placeholder="transparent">
+                                </div>
+                            </div>
+
+                            <!-- Stompbox -->
+                            <div class="color-pair-row">
+                                <label>Stompbox</label>
+                                <div class="color-swatch-row">
+                                    <input type="color" id="colorStompbox" value="#ffffff">
+                                    <input type="text" id="colorStompboxHex" value="#ffffff" placeholder="#ffffff">
+                                </div>
+                            </div>
+                            <div class="color-pair-row">
+                                <label>Stompbox Background</label>
+                                <div class="color-swatch-row">
+                                    <input type="color" id="bgColorStompbox" value="#000000">
+                                    <input type="text" id="bgColorStompboxHex" value="transparent" placeholder="transparent">
+                                </div>
+                            </div>
+
+                            <!-- Gallery BG (full-width) -->
+                            <div class="color-pair-row" style="grid-column: 1 / -1;">
+                                <label>Gallery Background Color</label>
+                                <div class="color-swatch-row">
+                                    <input type="color" id="galleryBackgroundColor" value="#42208F">
+                                    <input type="text" id="galleryBackgroundColorHex" value="#42208F" placeholder="#42208F">
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-                
-                <div class="debug-section">
-                    <h3>Text Background Colors</h3>
-                    <div class="debug-controls">
-                        <div class="control-group">
-                            <label>Countdown Background</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="bgColorCountdown" value="#000000" style="width: 60px; height: 40px;">
-                                <input type="text" id="bgColorCountdownHex" value="transparent" placeholder="transparent" style="flex: 1;">
+                    </details>
+
+                    <!-- 6 ── Layout / Positioning ──────────────── -->
+                    <details class="debug-section">
+                        <summary><h3>📐 Layout / Positioning</h3><span class="chevron">▶</span></summary>
+                        <div class="debug-controls">
+                            <div class="debug-sublabel">Camera</div>
+                            <div class="control-group">
+                                <label>Camera Left: <span id="cameraLeftValue">50</span>%</label>
+                                <input type="range" id="cameraLeft" min="0" max="100" value="50">
+                            </div>
+                            <div class="control-group">
+                                <label>Camera Top: <span id="cameraTopValue">50</span>%</label>
+                                <input type="range" id="cameraTop" min="0" max="100" value="50">
+                            </div>
+                            <div class="control-group">
+                                <label>Camera Width: <span id="cameraWidthValue">87</span>%</label>
+                                <input type="range" id="cameraWidth" min="20" max="100" value="87">
+                            </div>
+
+                            <div class="debug-sublabel">Countdown</div>
+                            <div class="control-group">
+                                <label>Countdown Bottom: <span id="countdownBottomVHValue">12</span>vh</label>
+                                <input type="range" id="countdownBottomVH" min="0" max="50" value="12">
+                            </div>
+                            <div class="control-group">
+                                <label>Countdown Left: <span id="countdownLeftVWValue">50</span>vw</label>
+                                <input type="range" id="countdownLeftVW" min="0" max="100" value="50">
+                            </div>
+                            <div class="control-group">
+                                <label>Countdown Size: <span id="countdownSizeVWValue">8</span>vw</label>
+                                <input type="range" id="countdownSizeVW" min="4" max="20" value="8">
+                            </div>
+
+                            <div class="debug-sublabel">Stompbox</div>
+                            <div class="control-group">
+                                <label>Stompbox Top: <span id="stompboxTopVHValue">80</span>vh</label>
+                                <input type="range" id="stompboxTopVH" min="0" max="100" value="80">
+                            </div>
+                            <div class="control-group">
+                                <label>Stompbox Left: <span id="stompboxLeftVWValue">50</span>vw</label>
+                                <input type="range" id="stompboxLeftVW" min="0" max="100" value="50">
+                            </div>
+                            <div class="control-group">
+                                <label>Stompbox Font: <span id="stompboxFontPXValue">25</span>px</label>
+                                <input type="range" id="stompboxFontPX" min="12" max="40" value="25">
+                            </div>
+
+                            <div class="debug-sublabel">Instructions</div>
+                            <div class="control-group">
+                                <label>Instructions Bottom: <span id="instructionsBottomPXValue">17</span>px</label>
+                                <input type="range" id="instructionsBottomPX" min="0" max="200" value="17">
+                            </div>
+                            <div class="control-group">
+                                <label>Instructions Width: <span id="instructionsWidthPercentValue">40</span>%</label>
+                                <input type="range" id="instructionsWidthPercent" min="40" max="100" value="40">
+                            </div>
+
+                            <div class="debug-sublabel">Single Photo Page</div>
+                            <div class="control-group">
+                                <label>Image Max Height: <span id="singlePhotoImageHeightValue">80</span>vh</label>
+                                <input type="range" id="singlePhotoImageHeight" min="40" max="90" value="80">
+                            </div>
+                            <div class="control-group">
+                                <label>Share Buttons Padding: <span id="shareButtonsPaddingValue">40</span>px</label>
+                                <input type="range" id="shareButtonsPadding" min="20" max="80" value="40">
+                            </div>
+                            <div class="control-group">
+                                <label>Share Button Size: <span id="shareButtonSizeValue">16</span>px</label>
+                                <input type="range" id="shareButtonSize" min="12" max="24" value="16">
+                            </div>
+                            <div class="control-group">
+                                <label>QR Code Size: <span id="qrCodeSizeValue">400</span>px</label>
+                                <input type="range" id="qrCodeSize" min="150" max="600" step="50" value="400">
+                            </div>
+                            <div class="control-group">
+                                <label>Section Gap: <span id="singlePhotoGapValue">60</span>px</label>
+                                <input type="range" id="singlePhotoGap" min="20" max="120" value="60">
                             </div>
                         </div>
-                        <div class="control-group">
-                            <label>Branding Background</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="bgColorBranding" value="#000000" style="width: 60px; height: 40px;">
-                                <input type="text" id="bgColorBrandingHex" value="transparent" placeholder="transparent" style="flex: 1;">
+                    </details>
+
+                    <!-- 7 ── Cloud & QR ───────────────────────── -->
+                    <details class="debug-section">
+                        <summary><h3>☁️ Cloud &amp; QR</h3><span class="chevron">▶</span></summary>
+                        <div class="debug-controls">
+                            <div class="control-group">
+                                <label>
+                                    <input type="checkbox" id="cloudStorageEnabled" checked>
+                                    Enable Cloud Storage (Cloudinary)
+                                </label>
+                            </div>
+                            <div class="control-group">
+                                <label style="font-size: 11px; color: var(--text-secondary);">
+                                    When disabled, photos are stored only in browser memory.
+                                    Enable for public URLs and QR code sharing.
+                                </label>
+                            </div>
+                            <div class="status-indicator" id="cloudStatus">
+                                <span>●</span> Cloud: Checking...
+                            </div>
+                            <div class="control-group">
+                                <label>QR Override URL (leave empty for photo-specific)</label>
+                                <input type="url" id="qrOverrideUrl" placeholder="https://example.com/event">
+                            </div>
+                            <div class="control-group">
+                                <label>Background Image URL</label>
+                                <input type="url" id="backgroundImageUrl" placeholder="https://example.com/bg.jpg">
+                            </div>
+                            <div class="control-group">
+                                <label>Background Image File</label>
+                                <input type="file" id="backgroundImageFile" accept="image/*">
+                            </div>
+                            <div class="control-group">
+                                <label>Gallery Background Image URL</label>
+                                <input type="url" id="galleryBackgroundImageUrl" placeholder="https://example.com/gallery-bg.jpg">
                             </div>
                         </div>
-                        <div class="control-group">
-                            <label>Instructions Background</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="bgColorInstructions" value="#000000" style="width: 60px; height: 40px;">
-                                <input type="text" id="bgColorInstructionsHex" value="transparent" placeholder="transparent" style="flex: 1;">
+                    </details>
+
+                    <!-- 8 ── System Status (open by default) ──── -->
+                    <details class="debug-section" open>
+                        <summary><h3>🛠 System Status</h3><span class="chevron">▶</span></summary>
+                        <div class="debug-controls">
+                            <div class="status-indicator status-success" id="cameraStatus">
+                                <span>●</span> Camera: Connected
+                            </div>
+                            <div class="status-indicator status-success" id="storageStatus">
+                                <span>●</span> Storage: OK
+                            </div>
+                            <div class="status-indicator status-success" id="systemStatus">
+                                <span>●</span> System: Ready
                             </div>
                         </div>
-                        <div class="control-group">
-                            <label>Key Hints Background</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="bgColorKeyHints" value="#000000" style="width: 60px; height: 40px;">
-                                <input type="text" id="bgColorKeyHintsHex" value="transparent" placeholder="transparent" style="flex: 1;">
-                            </div>
+                    </details>
+
+                    <!-- 9 ── Test & Reset (open by default) ────── -->
+                    <details class="debug-section" open>
+                        <summary><h3>🧪 Test &amp; Reset</h3><span class="chevron">▶</span></summary>
+                        <div class="test-button-row">
+                            <button class="btn" onclick="testCountdown()">Test Countdown</button>
+                            <button class="btn" onclick="testPhotoCapture()">Test Photo Capture</button>
+                            <button class="btn" onclick="testQRGeneration()">Test QR Generation</button>
+                            <button class="btn btn-secondary" onclick="exportSettings()">Export Settings</button>
+                            <button class="btn btn-secondary" onclick="importSettings()">Import Settings</button>
+                            <button class="btn btn-destructive" onclick="resetToDefaults()">Reset to Defaults</button>
+                            <input type="file" id="importSettingsFile" accept=".json" style="display: none;">
                         </div>
-                        <div class="control-group">
-                            <label>Stompbox Background</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="bgColorStompbox" value="#000000" style="width: 60px; height: 40px;">
-                                <input type="text" id="bgColorStompboxHex" value="transparent" placeholder="transparent" style="flex: 1;">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="debug-section">
-                    <h3>QR & Background</h3>
-                    <div class="debug-controls">
-                        <div class="control-group">
-                            <label>QR Override URL (leave empty for photo-specific)</label>
-                            <input type="url" id="qrOverrideUrl" placeholder="https://example.com/event">
-                        </div>
-                        <div class="control-group">
-                            <label>Background Image URL</label>
-                            <input type="url" id="backgroundImageUrl" placeholder="https://example.com/bg.jpg">
-                        </div>
-                        <div class="control-group">
-                            <label>Background Image File</label>
-                            <input type="file" id="backgroundImageFile" accept="image/*">
-                        </div>
-                        <div class="control-group">
-                            <label>Gallery Background Image URL</label>
-                            <input type="url" id="galleryBackgroundImageUrl" placeholder="https://example.com/gallery-bg.jpg">
-                        </div>
-                        <div class="control-group">
-                            <label>Gallery Background Color</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="galleryBackgroundColor" value="#42208F" style="width: 60px; height: 40px;">
-                                <input type="text" id="galleryBackgroundColorHex" value="#42208F" placeholder="#42208F" style="flex: 1;">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="debug-section">
-                    <h3>Single Photo Page Sizing</h3>
-                    <div class="debug-controls">
-                        <div class="control-group">
-                            <label>Image Max Height: <span id="singlePhotoImageHeightValue">80</span>vh</label>
-                            <input type="range" id="singlePhotoImageHeight" min="40" max="90" value="80">
-                        </div>
-                        <div class="control-group">
-                            <label>Share Buttons Padding: <span id="shareButtonsPaddingValue">40</span>px</label>
-                            <input type="range" id="shareButtonsPadding" min="20" max="80" value="40">
-                        </div>
-                        <div class="control-group">
-                            <label>Share Button Size: <span id="shareButtonSizeValue">16</span>px</label>
-                            <input type="range" id="shareButtonSize" min="12" max="24" value="16">
-                        </div>
-                        <div class="control-group">
-                            <label>QR Code Size: <span id="qrCodeSizeValue">400</span>px</label>
-                            <input type="range" id="qrCodeSize" min="150" max="600" step="50" value="400">
-                        </div>
-                        <div class="control-group">
-                            <label>Section Gap: <span id="singlePhotoGapValue">60</span>px</label>
-                            <input type="range" id="singlePhotoGap" min="20" max="120" value="60">
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="debug-section">
-                    <h3>Cloud Storage Settings</h3>
-                    <div class="debug-controls">
-                        <div class="control-group">
-                            <label style="display: flex; align-items: center; gap: 10px;">
-                                <input type="checkbox" id="cloudStorageEnabled" checked>
-                                Enable Cloud Storage (Cloudinary)
-                            </label>
-                        </div>
-                        <div class="control-group">
-                            <label style="font-size: 12px; color: var(--text-secondary);">
-                                When disabled, photos are only stored locally in browser memory.
-                                Enable for public URLs and QR code sharing.
-                            </label>
-                        </div>
-                        <div class="status-indicator" id="cloudStatus">
-                            <span>●</span> Cloud: Checking...
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="debug-section">
-                    <h3>System Status</h3>
-                    <div class="debug-controls">
-                        <div class="status-indicator status-success" id="cameraStatus">
-                            <span>●</span> Camera: Connected
-                        </div>
-                        <div class="status-indicator status-success" id="storageStatus">
-                            <span>●</span> Storage: OK
-                        </div>
-                        <div class="status-indicator status-success" id="systemStatus">
-                            <span>●</span> System: Ready
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="debug-section">
-                    <h3>Test Controls</h3>
-                    <div class="debug-controls">
-                        <button class="btn" onclick="testCountdown()">Test Countdown</button>
-                        <button class="btn" onclick="testPhotoCapture()">Test Photo Capture</button>
-                        <button class="btn" onclick="testQRGeneration()">Test QR Generation</button>
-                        <button class="btn" onclick="exportSettings()">Export Settings</button>
-                        <button class="btn" onclick="importSettings()">Import Settings</button>
-                        <button class="btn btn-secondary" onclick="resetToDefaults()">Reset to Defaults</button>
-                        <input type="file" id="importSettingsFile" accept=".json" style="display: none;">
-                    </div>
-                </div>
-                
-                <div style="text-align: center; margin-top: 30px;">
-                    <button class="btn" onclick="closeDebugPanel()">Close (ESC)</button>
-                </div>
-            </div>
-        </div>
-        
+                    </details>
+
+                </div><!-- /.debug-panel-body -->
+            </div><!-- /.debug-panel -->
+        </div><!-- /.debug-overlay -->
+
         <div class="key-hint">
             Press 'G' for Gallery • 'D' for Debug • Spacebar to capture
         </div>
     </div>
-    
+
     <!-- config.js stays a plain <script> (not a module) so event operators can edit it easily -->
     <script src="config.js"></script>
     <!-- Main app loaded as ES module — imports camera, gallery, uploader, ui -->
